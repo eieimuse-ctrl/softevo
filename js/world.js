@@ -45,7 +45,7 @@ function prep(c) {
 /**
  * 生物を描く (ctx は Camera.apply 済み)
  * o: { ghost: hue|null, selEdge, selNode, eyes, glowNodes:Set, glowEdges:Set }
- *   ghost … 影 (骨組みだけを1ドットの細い線で。筋肉の動き・節点・目は描かない)
+ *   ghost … 影 (1ドットの線と点の骨組み。筋肉の動きと目は描かない。主役を隠さず、形は見分けられるように)
  */
 export function drawCreature(ctx, c, o = {}) {
   prep(c);
@@ -54,7 +54,8 @@ export function drawCreature(ctx, c, o = {}) {
   const m = ctx.getTransform();
   const sc = Math.hypot(m.a, m.b) || 1; // 世界 1cm が何ドットか
   const live = !!c.brain;
-  const gpat = ghost ? hueColor(o.ghost, 0) : null; // 影は暗い色の1ドットの細い線 (背景にとけこむ)
+  // 影 (同世代のライバル・ほかのレーン): 骨は中くらいの明るさ、筋肉は暗く、節点は明るい点。どれも1ドット
+  const gBone = ghost ? hueColor(o.ghost, 1) : null, gMus = ghost ? hueColor(o.ghost, 0) : null, gDot = ghost ? hueColor(o.ghost, 2) : null;
   ctx.save();
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
 
@@ -68,13 +69,13 @@ export function drawCreature(ctx, c, o = {}) {
       ctx.strokeStyle = PAL.white; ctx.lineWidth = 7 + 4 * con;
       ctx.beginPath(); ctx.moveTo(x[ea[e]], y[ea[e]]); ctx.lineTo(x[eb[e]], y[eb[e]]); ctx.stroke();
     }
-    ctx.strokeStyle = ghost ? gpat : muscleColor(j, !live ? 2 : con > 0.35 ? 2 : ext > 0.45 ? 0 : 1);
+    ctx.strokeStyle = ghost ? gMus : muscleColor(j, !live ? 2 : con > 0.35 ? 2 : ext > 0.45 ? 0 : 1);
     ctx.lineWidth = ghost ? 1 / sc : 1.6 + 3.6 * con + (1 - ext) * 0.6;
     ctx.beginPath(); ctx.moveTo(x[ea[e]], y[ea[e]]); ctx.lineTo(x[eb[e]], y[eb[e]]); ctx.stroke();
   }
 
   // 骨
-  ctx.strokeStyle = ghost ? gpat : PAL.n7;
+  ctx.strokeStyle = ghost ? gBone : PAL.n7;
   ctx.lineWidth = ghost ? 1 / sc : 3.2;
   ctx.beginPath();
   for (let e = 0; e < ea.length; e++) {
@@ -88,7 +89,7 @@ export function drawCreature(ctx, c, o = {}) {
   dotSpace(ctx);
   for (let i = 0; i < c.n; i++) {
     const [X, Y] = toDot(ctx, x[i], y[i], m);
-    if (ghost) continue; // 影は骨組みだけ (主役を隠さない)
+    if (ghost) { ctx.fillStyle = gDot; ctx.fillRect(Math.round(X) - 1, Math.round(Y) - 1, 2, 2); continue; }
     const glow = o.selNode === i || (o.glowNodes && o.glowNodes.has(i));
     if (glow) pixelDisc(ctx, X, Y, R + 2, PAL.white);
     pixelDisc(ctx, X, Y, R, c.contact[i] ? PAL.g2 : PAL.n7);
