@@ -1,16 +1,24 @@
 #!/usr/bin/env node
 /* =====================================================================
-   SoftEvo Reels — エピソードをつくる (動画の中身はすべて英語)
+   Softevo Reels — エピソードをつくる (v2: 音ハメの台本つき。動画の文字はすべて英語)
    ---------------------------------------------------------------------
-   毎回ちがう体 (🎲 おまかせ) を進化させ、見せ場の世代を自動で選んで
-   reel/episodes/epNNN.json に書き出す。再生ページ (reel/index.html) がこれを読んで縦動画の画を描く。
+   台本「drop16」= 16秒・120 BPM・8小節 (1拍 = 15コマ, 1小節 = 60コマ @30fps)。
+   カットも文字も効果音も、すべて拍の頭にそろえる。
+     小節1  0:00 つかみ     第0世代 (ランダムな脳) が倒れる。倒れた瞬間 = 拍の頭
+     小節2  0:02 成長       2つの世代を拍の頭で切り替え
+     小節3  0:04 惜しい!    ゴールの旗の数cm手前で時間切れ
+     小節4  0:06 最後の挑戦  スネアの連打で盛り上げ、4拍目はスロー + 無音
+     小節5  0:08 ゴール      旗を越える瞬間 = 曲のドロップ
+     小節6  0:10 勝利の走り
+     小節7  0:12 結果       第0世代 → 最終世代
+     小節8  0:14 呼びかけ    フォロー・名前をつけて。巻き戻して最初のコマへ (ループ)
+   距離は「鼻先」(いちばん前の節点) で測る。旗に触れた見た目と数字が一致するように。
 
    使い方:
-     node reel/make-episode.mjs --ep 1                 (体はおまかせ、種は自動)
-     node reel/make-episode.mjs --ep 2 --seed 777      (同じ種なら毎回同じ回ができる)
-     node reel/make-episode.mjs --ep 3 --body quad     (プリセットの体: inchworm / quad / biped / snake / wheel)
-     node reel/make-episode.mjs --ep 4 --gens 300 --name "Wobbly Bob"
-     node reel/make-episode.mjs --ep 5 --cast 6       (6体を短く試して、いちばん伸びそうな体で本番)
+     node reel/make-episode.mjs --ep 2                       いろいろな体をオーディションして自動で選ぶ
+     node reel/make-episode.mjs --ep 2 --seed 777            オーディションの種 (同じ種なら同じ回)
+     node reel/make-episode.mjs --ep 1 --body-seed 230732    体を決めて作る
+     オプション: --cast 24 (候補の数) --cast-gens 30 --finalists 4 --gens 300 --goal 10 (m) --out path
    ===================================================================== */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -19,7 +27,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const mod = f => import(pathToFileURL(path.join(here, '..', 'js', f)).href);
 const { Evolver } = await mod('evo.js');
-const { DEFAULT_SETTINGS, PRESETS, brainLayout, evaluate, gaitDistance } = await mod('sim.js');
+const { DEFAULT_SETTINGS, brainLayout, Creature, FPS } = await mod('sim.js');
 const { randomBody } = await mod('randbody.js');
 
 // ─── 引数 ───
@@ -28,10 +36,10 @@ for (let i = 2; i < process.argv.length; i++) {
   const a = process.argv[i];
   if (a.startsWith('--')) { const k = a.slice(2), v = process.argv[i + 1]; if (v == null || v.startsWith('--')) args[k] = true; else { args[k] = v; i++; } }
 }
-if (!args.ep) { console.error('使い方: node reel/make-episode.mjs --ep <番号> [--seed N] [--gens N] [--body quad] [--name "..."] [--out path]'); process.exit(1); }
+if (!args.ep) { console.error('使い方: node reel/make-episode.mjs --ep <番号> [--body-seed N | --seed N --cast 24] [--gens 300] [--goal 10]'); process.exit(1); }
 const EP = +args.ep, TAG = `#${String(EP).padStart(3, '0')}`;
 const SEED = args.seed != null ? (+args.seed >>> 0) : (Math.random() * 2 ** 32) >>> 0;
-const GENS = +(args.gens || 200);
+const GENS = +(args.gens || 300);
 const OUT = args.out || path.join(here, 'episodes', `ep${String(EP).padStart(3, '0')}.json`);
 
 // 種から決まる乱数 (mulberry32)
@@ -39,132 +47,229 @@ function rng32(seed) {
   let a = seed >>> 0;
   return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
-const rand = rng32(SEED);
-const pick = arr => arr[Math.floor(rand() * arr.length)];
-
-// ─── 体 ───
 const settings = { ...DEFAULT_SETTINGS };
 const env = { terrain: settings.terrain, objective: settings.objective, gravity: settings.gravity, friction: settings.friction, evalSeconds: settings.evalSeconds };
-let bp, evoSeed;
-if (args.body && args.body !== 'random') {
-  if (!PRESETS[args.body]) { console.error(`体の名前が違います: ${args.body} (${Object.keys(PRESETS).join(' / ')})`); process.exit(1); }
-  bp = JSON.parse(JSON.stringify(PRESETS[args.body].bp));
-  evoSeed = (rand() * 2 ** 31) | 0;
-} else if (args.cast) {
-  // オーディション: 何体か短く進化させて、いちばん伸びた体を選ぶ
-  const N = Math.max(2, +args.cast), CG = +(args['cast-gens'] || 40);
-  console.log(`${TAG}  オーディション: ${N}体 × ${CG}世代`);
-  let best = null;
-  for (let k = 0; k < N; k++) {
-    const body = randomBody(rand), sd = (rand() * 2 ** 31) | 0;
-    const e = new Evolver(body, settings, { seed: sd });
-    let s; for (let g = 0; g < CG; g++) s = e.runGeneration();
-    console.log(`  候補${k + 1}: ノード${body.nodes.length}  ${(s.bestEver / 100).toFixed(2)} m`);
-    if (!best || s.bestEver > best.score) best = { body, sd, score: s.bestEver, k };
+const EVAL = settings.evalSeconds;
+
+// ─── 台本 drop16 のコマ (30fps・120 BPM) ───
+const VFPS = 30, BPM = 120, BEAT = VFPS * 60 / BPM; // 15コマ
+const F = { hook: 0, m1: 60, m2: 90, almost: 120, timeUp: 150, final: 180, slow: 225, drop: 240, goalSub: 300, result: 360, cta: 420, end: 480 };
+
+// ─── 体・進化・測定 ───
+/** 体の種 → 体と進化の種 (同じ種なら同じ体・同じ進化) */
+function bodyOf(seed) { const r = rng32(seed); const bp = randomBody(r); return { seed, bp, evoSeed: (r() * 2 ** 31) | 0 }; }
+const front = c => { let m = -Infinity; for (let i = 0; i < c.n; i++) if (c.x[i] > m) m = c.x[i]; return m; };
+/** 鼻先の進み (cm) を 1/60 秒ごとに */
+function noseRun(bp, layout, g, secs) {
+  const c = new Creature(bp, layout, g, env), f0 = front(c), tr = new Float64Array(Math.round(secs * FPS) + 1);
+  for (let k = 1; k < tr.length; k++) { c.step(); tr[k] = front(c) - f0; }
+  return tr;
+}
+function evolve(body, gens, quiet) {
+  const ev = new Evolver(body.bp, settings, { seed: body.evoSeed });
+  const pop0 = ev.pop.map(p => Float32Array.from(p.g)); // 第0世代 = ランダムな脳
+  const recs = []; let best = -Infinity, s;
+  for (let g = 0; g < gens; g++) {
+    s = ev.runGeneration();
+    if (s.best > best + 1) { best = s.best; recs.push({ gen: s.gen, cen: s.best, g: Float32Array.from(s.champ.genome) }); }
+    if (!quiet && (g + 1) % 100 === 0) console.log(`    第${g + 1}世代  最高 ${(s.bestEver / 100).toFixed(2)} m`);
   }
-  bp = best.body; evoSeed = best.sd;
-  console.log(`  → 候補${best.k + 1} に決定`);
-} else { bp = randomBody(rand); evoSeed = (rand() * 2 ** 31) | 0; }
-const layout = brainLayout(bp, settings);
-
-// ─── 進化 ───
-console.log(`${TAG}  seed=${SEED}  nodes=${bp.nodes.length} edges=${bp.edges.length}  ${GENS} 世代を進化中…`);
-const ev = new Evolver(bp, settings, { seed: evoSeed });
-const H = [];
-let lastGait = null;
-for (let g = 0; g < GENS; g++) {
-  const s = ev.runGeneration();
-  let gaitShift = 0;
-  if (s.record || g === 0) { if (lastGait && s.champ.gait) gaitShift = gaitDistance(s.champ.gait, lastGait); lastGait = s.champ.gait; }
-  H.push({ gen: s.gen, best: s.best, bestEver: s.bestEver, genome: Float32Array.from(s.champ.genome), record: s.record, gaitShift });
-  if ((g + 1) % 50 === 0) console.log(`  第${g + 1}世代  最高 ${(s.bestEver / 100).toFixed(2)} m`);
+  return { recs, pop0, bestEver: s.bestEver };
+}
+/** 第0世代から「倒れる」(なければ「動けない」) 個体を選ぶ */
+function pickFail(body, layout, pop0) {
+  let head = 0; body.bp.nodes.forEach((p, i) => { if (p.y > body.bp.nodes[head].y) head = i; });
+  let y0 = Infinity; for (const p of body.bp.nodes) y0 = Math.min(y0, p.y);
+  const tall = body.bp.nodes[head].y - y0 >= 40; // 頭が地面から 40cm 以上 → 倒れると分かる
+  const out = [];
+  pop0.forEach((g, k) => {
+    const c = new Creature(body.bp, layout, g, env), f0 = front(c);
+    let tI = -1;
+    for (let s = 1; s <= EVAL * FPS; s++) { c.step(); if (tI < 0 && c.contact[head]) tI = s; }
+    out.push({ k, tI, d: front(c) - f0 });
+  });
+  const falls = tall ? out.filter(o => o.tI >= 0.3 * FPS && o.tI <= 1.2 * FPS && Math.abs(o.d) < 40).sort((a, b) => Math.abs(a.d) - Math.abs(b.d)) : [];
+  const o = falls[0] || out.slice().sort((a, b) => Math.abs(a.d) - Math.abs(b.d))[0];
+  return { ...o, kind: falls.length ? 'fall' : 'still', g: pop0[o.k] };
+}
+/** ゴールの距離と見せる世代を選ぶ。旗の数cm手前で終わる「惜しい」世代があるほど高得点 */
+function plan(body, run) {
+  const layout = brainLayout(body.bp, settings);
+  for (const r of run.recs) { r.tr = noseRun(body.bp, layout, r.g, EVAL + 8); r.nose = r.tr[EVAL * FPS]; }
+  const fin = run.recs.reduce((a, b) => (b.nose > a.nose ? b : a));
+  const goals = args.goal ? [+args.goal] : [5, 6, 8, 10, 12, 15, 20, 25, 30];
+  let best = null;
+  for (const G of goals) {
+    const Gc = G * 100, ci = fin.tr.findIndex(v => v >= Gc);
+    if (ci < 0) continue;
+    const c = ci / FPS;
+    if (c < 3 || c > 9) continue; // 最後の挑戦はゴールの 2.5 秒前から見せる
+    let al = null;
+    for (const r of run.recs) if (r.gen < fin.gen && r.nose < Gc && (!al || r.nose > al.nose)) al = r;
+    if (!al || Gc - al.nose > 0.15 * Gc) continue;
+    const pool = run.recs.filter(r => r.gen < al.gen && r.nose > 0.2 * Gc && r.nose < al.nose - 0.08 * Gc);
+    const near = (p, not) => pool.filter(r => r !== not).sort((a, b) => Math.abs(a.nose - p * Gc) - Math.abs(b.nose - p * Gc))[0];
+    const n1 = near(0.4), n2 = near(0.7, n1);
+    if (!n1 || !n2) continue;
+    const [m1, m2] = n1.gen < n2.gen ? [n1, n2] : [n2, n1];
+    if (m2.nose <= m1.nose + 0.1 * Gc) continue;
+    const gap = Gc - al.nose;
+    const score = 60 * (1 - gap / (0.15 * Gc)) + (G % 5 === 0 ? 8 : 0) + Math.min(G, 20) * 0.5;
+    if (!best || score > best.score) best = { G, c, al, m1, m2, fin, gap, score, layout };
+  }
+  if (!best) return null;
+  best.fail = pickFail(body, best.layout, run.pop0);
+  best.score += best.fail.kind === 'fall' ? 15 : 0;
+  const n = body.bp.nodes.length;
+  best.score += n >= 6 && n <= 14 ? 5 : 0;
+  return best;
 }
 
-// 12秒の距離 (m, 小数1桁) — 決定論なので再生ページでもまったく同じ距離になる
-const distOf = genome => evaluate(bp, layout, genome, env).distance / 100;
-const m1 = v => `${Math.max(0, v).toFixed(1)} m`;
-
-// ─── 見せ場の世代を選ぶ ───
-const g0 = H[0];
-let fin = H[0];
-for (const e of H) if (e.best > fin.best) fin = e;
-const d0 = distOf(g0.genome), dF = distOf(fin.genome);
-const gap = Math.max(3, Math.round(GENS * 0.06));
-const cands = [];
-const firstStep = H.find(e => e.gen > 0 && e.best >= Math.max(100, g0.best * 2 + 50));
-if (firstStep) cands.push({ e: firstStep, kind: 'first', sub: 'first steps', pri: 1 });
-let leap = null, leapGain = 0;
-for (let i = 1; i < H.length; i++) { const gain = H[i].bestEver - H[i - 1].bestEver; if (gain > leapGain) { leapGain = gain; leap = H[i]; } }
-if (leap) cands.push({ e: leap, kind: 'leap', sub: 'breakthrough', pri: 2 });
-const gaitE = H.filter(e => e.record && e.gaitShift > 0.22).sort((a, b) => b.gaitShift - a.gaitShift)[0];
-if (gaitE) cands.push({ e: gaitE, kind: 'gait', sub: 'new way to move', pri: 3 });
-for (const T of [30, 20, 15, 10, 5, 2]) {
-  const e = H.find(x => x.best >= T * 100);
-  if (e) cands.push({ e, kind: 'break', sub: `breaks ${T} m`, pri: 4 + (30 - T) / 100 });
+// ─── 体を決める (オーディション) ───
+let body, run, P;
+if (args['body-seed'] != null) {
+  body = bodyOf(+args['body-seed'] >>> 0);
+  console.log(`${TAG}  体の種 ${body.seed}: ノード${body.bp.nodes.length} 辺${body.bp.edges.length}  ${GENS}世代を進化中…`);
+  run = evolve(body, GENS);
+  P = plan(body, run);
+  if (!P) { console.error('この体では台本の条件 (惜しい世代・ゴールの時間) を満たせませんでした。--goal を変えるか別の体で。'); process.exit(1); }
+} else {
+  const N = Math.max(2, +(args.cast || 24)), CG = +(args['cast-gens'] || 30), K = Math.max(1, +(args.finalists || 4));
+  const rand = rng32(SEED);
+  console.log(`${TAG}  オーディション (種 ${SEED}): ${N}体 × ${CG}世代 → 上位${K}体を ${GENS}世代`);
+  const quick = [];
+  for (let k = 0; k < N; k++) {
+    const b = bodyOf((rand() * 2 ** 31) >>> 0);
+    const r = evolve(b, CG, true);
+    quick.push({ b, score: r.bestEver });
+    console.log(`  候補${String(k + 1).padStart(2)}: 体の種 ${b.seed}  ノード${String(b.bp.nodes.length).padStart(2)}  ${(r.bestEver / 100).toFixed(2)} m`);
+  }
+  quick.sort((a, b) => b.score - a.score);
+  for (const q of quick.slice(0, K)) {
+    console.log(`  本番: 体の種 ${q.b.seed}`);
+    const r = evolve(q.b, GENS), p = plan(q.b, r);
+    if (!p) { console.log('    → 台本に合わず'); continue; }
+    console.log(`    → ゴール ${p.G} m・惜しい世代 ${p.al.gen} (${(p.gap).toFixed(1)} cm 手前)・第0世代 ${p.fail.kind}・点 ${p.score.toFixed(1)}`);
+    if (!P || p.score > P.score) { P = p; body = q.b; run = r; }
+  }
+  if (!P) { console.error('台本に合う体が見つかりませんでした。--cast を増やすか --seed を変えて。'); process.exit(1); }
+  console.log(`  → 体の種 ${body.seed} に決定 (同じ回を作り直すときは --body-seed ${body.seed})`);
 }
-cands.sort((a, b) => a.pri - b.pri);
-const chosen = [];
-const far = gen => Math.abs(gen - 0) >= gap && Math.abs(gen - fin.gen) >= gap && chosen.every(c => Math.abs(c.e.gen - gen) >= gap);
-for (const c of cands) if (chosen.length < 3 && far(c.e.gen)) chosen.push(c);
-// 足りなければ途中の世代で埋める
-for (let k = 1; chosen.length < 3 && k <= 6; k++) {
-  const e = H[Math.round(fin.gen * k / 7)];
-  if (e && far(e.gen)) chosen.push({ e, kind: 'progress', sub: 'getting better' });
-}
-chosen.sort((a, b) => a.e.gen - b.e.gen);
 
-// ─── 台本 (すべて英語) ───
-const hooks = [
-  ["This creature has never walked.", "Watch it learn."],
-  ["Gen 0: a random brain.", "Then evolution kicks in."],
-  ["Nobody taught it to walk.", "Watch."],
-  ["It can't even stand up.", "Give it a few generations."],
+// ─── 時間の割り付け: コマ → シミュレーションの秒 ───
+const { G, c, al, m1, m2, fin, fail, layout } = P;
+const r2 = v => Math.round(v * 1000) / 1000;
+// つかみ: 倒れた瞬間 (頭が地面に着く) を 15/30/45 コマ目 (拍の頭) に合わせる
+let hookMap = [[0, 0], [60, 2]], fI = null;
+if (fail.kind === 'fall') {
+  const tI = fail.tI / FPS;
+  let bestF = null;
+  for (const f of [15, 30, 45]) { const sp = tI / (f / VFPS); if (sp >= 0.6 && sp <= 1.5 && (!bestF || Math.abs(Math.log(sp)) < Math.abs(Math.log(bestF.sp)))) bestF = { f, sp }; }
+  if (bestF) { fI = bestF.f; hookMap = [[0, 0], [fI, r2(tI)], [60, r2(tI + (60 - fI) / VFPS)]]; }
+}
+const endMap = (f0, f1, sp) => [[f0, r2(EVAL - (f1 - f0) / VFPS * sp)], [f1, EVAL]];
+// 最後の挑戦の歩調を曲に合わせる: 体が地面に着く瞬間 (いちばん低くなる時) を拍の頭に。
+// 歩き方が規則正しければ、ゴールの直後の着地 = ドロップ、勝利の走りは 1歩 = 1拍 (キックと同時に着地)
+function strideLock() {
+  const c0 = new Creature(body.bp, layout, fin.g, env), Hs = [], As = [];
+  for (let k = 0; k < (c + 8) * FPS; k++) {
+    c0.step();
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (let i = 0; i < c0.n; i++) { x0 = Math.min(x0, c0.x[i]); x1 = Math.max(x1, c0.x[i]); y0 = Math.min(y0, c0.y[i]); y1 = Math.max(y1, c0.y[i]); }
+    Hs.push(y1); As.push((y1 - y0) / Math.max(1, x1 - x0));
+  }
+  const tro = [];
+  for (let k = 1; k < Hs.length - 1; k++) if (Hs[k] < Hs[k - 1] && Hs[k] <= Hs[k + 1]) tro.push((k + 1) / FPS);
+  const near = tro.filter(t => t > c - 3 && t < c + 7);
+  if (near.length < 6) return null;
+  const iv = near.slice(1).map((t, i) => t - near[i]);
+  const P = (near[near.length - 1] - near[0]) / (near.length - 1); // 平均の1歩 (ずれがたまらないように)
+  if (P < 0.15 || P > 1.2 || iv.some(v => Math.abs(v - P) > 0.15 * P)) return null; // 不規則なら合わせない
+  const tStar = near.find(t => t >= c);
+  if (tStar == null || tStar - c > 0.6) return null;
+  const pick = (cands, lo, hi, want) => cands.filter(v => v >= lo && v <= hi).sort((a, b) => Math.abs(a - want) - Math.abs(b - want))[0];
+  const sV = pick([P, 2 * P, 4 * P], 0.6, 1.5, 1);   // 勝利の走り: 1拍に 0.5/1/2 歩
+  const sA = pick([2 * P, 4 * P, 8 * P], 1.2, 2.4, 1.7); // 最後の挑戦: 8分か4分に1歩
+  if (!sV || !sA) return null;
+  const delta = clamp(tStar - c + 0.08, 0.15, 0.45);   // 鼻先がゴールを越えるのはスローの中
+  // 寝そべって進む? (走っている間の縦横比が、設計図よりずっと平たい)
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const p of body.bp.nodes) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
+  const run = As.slice(Math.round((c - 2) * FPS), Math.round((c + 4) * FPS)), avgA = run.reduce((a, b) => a + b, 0) / run.length;
+  const restA = (y1 - y0) / Math.max(1, x1 - x0);
+  return { P, tStar, sV, sA, delta, lying: restA > 1 && avgA < 0.6 * restA };
+}
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const lock = strideLock();
+const finalMap = lock
+  ? [[F.final, r2(lock.tStar - lock.delta - (F.slow - F.final) / VFPS * lock.sA)], [F.slow, r2(lock.tStar - lock.delta)], [F.drop, r2(lock.tStar)], [F.cta, r2(lock.tStar + (F.cta - F.drop) / VFPS * lock.sV)]]
+  : [[F.final, r2(c - 2.5)], [F.slow, r2(c - 0.25)], [F.drop, r2(c)], [F.cta, r2(c + 6)]];
+const finalEnd = finalMap[finalMap.length - 1][1];
+const segments = [
+  { id: 'hook', from: F.hook, to: F.m1, genome: 'f0', gen: 0, map: hookMap },
+  { id: 'm1', from: F.m1, to: F.m2, genome: String(m1.gen), gen: m1.gen, map: endMap(F.m1, F.m2, 1.5) },
+  { id: 'm2', from: F.m2, to: F.almost, genome: String(m2.gen), gen: m2.gen, map: endMap(F.m2, F.almost, 1.5) },
+  { id: 'almost', from: F.almost, to: F.final, genome: String(al.gen), gen: al.gen, map: [...endMap(F.almost, F.timeUp, 1.5), [F.final, EVAL]] },
+  // 速め → 最後の1拍はスロー (無音) → ドロップ = ゴール直後の着地 → 1歩 = 1拍で勝利の走り
+  { id: 'final', from: F.final, to: F.cta, genome: String(fin.gen), gen: fin.gen, map: finalMap },
+  // 巻き戻し (なめらかに加速・減速)。最後の数コマは最初のコマと同じ姿 → つなぎ目なくループ
+  { id: 'cta', from: F.cta, to: F.end, genome: String(fin.gen), gen: fin.gen, map: [[F.cta, finalEnd], [F.end - 6, 0, 'inOut'], [F.end, 0]], morphTo: 'f0' },
 ];
-const hook = pick(hooks);
-const name = args.name || null;
-const title = name ? `${name.toUpperCase()} ${TAG}` : `CREATURE ${TAG}`;
-const shots = [
-  { gen: 0, sec: 4.2, speed: 1, caption: 'GEN 0', sub: 'random brain', hook, hookSec: 2.4 },
-  ...chosen.map(c => ({ gen: c.e.gen, sec: 3.6, speed: 1, caption: `GEN ${c.e.gen}`, sub: c.sub, kind: c.kind })),
-  { gen: fin.gen, sec: 6, speed: 2, caption: `GEN ${fin.gen}`, sub: `${m1(dF)} in 12 s`, ghost: 0, kind: 'final' },
-  { end: true, sec: 3.6 },
-];
-const neurons = layout.sizes.reduce((a, b) => a + b, 0);
-let synapses = 0; for (let l = 1; l < layout.sizes.length; l++) synapses += layout.sizes[l - 1] * layout.sizes[l];
-const next = `#${String(EP + 1).padStart(3, '0')}`;
-const end = {
-  big: `${m1(d0)} → ${m1(dF)}`,
-  sub: `in ${fin.gen} generations`,
-  cta: ['Evolve your own creature', 'link in bio'],
-  ask: `Comment a body for ${next}`,
+const events = [];
+if (fI != null) events.push({ f: fI, type: 'bonk' });
+for (const f of [F.m1, F.m2, F.almost, F.final]) events.push({ f, type: 'cut' });
+events.push({ f: F.timeUp, type: 'fail' }, { f: F.drop, type: 'goal' }, { f: F.result, type: 'count' }, { f: F.cta, type: 'rewind' });
+
+// ─── 文字 (英語) ───
+const m = v => `${Math.max(0, v / 100).toFixed(1)} m`;
+const gapCm = Math.max(1, Math.round(P.gap));
+const pop = settings.population;
+const tries = (fin.gen + 1) * pop;
+const texts = {
+  title: 'AI LEARNS TO WALK',
+  goal: `${G} m`,
+  hookSub: 'random brain',
+  hookFail: fail.kind === 'fall' ? "CAN'T EVEN STAND" : "CAN'T MOVE",
+  timeUp: 'TIME!',
+  almost: 'SO CLOSE...',
+  almostShort: `${gapCm} cm short`,
+  goalBig: 'GOAL!',
+  goalSub: 'nobody taught it how',
+  result: [`GEN 0`, `GEN ${fin.gen}`, m(fail.d), m(fin.nose), `${tries.toLocaleString('en-US')} tries`],
+  cta: ['FOLLOW', 'for the next creature', 'Name it ↓'],
 };
-const hashtags = ['#evolution', '#neuralnetwork', '#machinelearning', '#geneticalgorithm', '#artificiallife', '#simulation', '#ai', '#creativecoding', '#pixelart', '#indiedev'];
+const hashtags = ['#ai', '#evolution', '#neuralnetwork', '#machinelearning', '#simulation', '#pixelart']; // 少なめ・内容に合うものだけ
 const caption = [
-  `${name ? `${name} (Creature ${TAG})` : `Creature ${TAG}`} learned to walk in ${fin.gen} generations.`,
-  `Gen 0: ${m1(d0)} → Gen ${fin.gen}: ${m1(dF)} (12 s)`,
-  `Nothing here is animated by hand — a ${neurons}-neuron brain shaped only by evolution.`,
+  fail.kind === 'fall' ? "Gen 0 couldn't even stand." : "Gen 0 couldn't move an inch.",
+  `Gen ${al.gen} missed the ${G} m flag by ${gapCm} cm.`,
+  lock && lock.lying && fail.kind === 'fall'
+    ? `Gen ${fin.gen} never learned to stand either — it invented its own way to move: ${m(fin.nose)} in ${EVAL} s. 🧬`
+    : `Gen ${fin.gen} made it: ${m(fin.nose)} in ${EVAL} s. 🧬`,
   '',
-  `👇 Comment a body part and we'll build Creature ${next}.`,
-  '🔗 Evolve your own creature: link in bio',
+  `Random body, random brain. Nobody taught it how — just ${tries.toLocaleString('en-US')} tries of evolution.`,
+  '',
+  '👇 Name this creature',
   '',
   hashtags.join(' '),
 ].join('\n');
 
-const usedGens = [...new Set([0, fin.gen, ...chosen.map(c => c.e.gen)])];
 const b64 = f => Buffer.from(f.buffer, f.byteOffset, f.byteLength).toString('base64');
 const episode = {
-  format: 'softevo-reel/1',
-  episode: EP, tag: TAG, title, name, seed: SEED, generations: GENS,
-  settings, blueprint: bp,
-  stats: { d0: +d0.toFixed(2), dFinal: +dF.toFixed(2), finalGen: fin.gen, neurons, synapses, nodes: bp.nodes.length, muscles: bp.edges.filter(e => e.type === 'muscle').length },
-  genomes: Object.fromEntries(usedGens.map(g => [g, b64(H[g].genome)])),
-  shots, end,
-  cover: { big: TAG, top: 'CREATURE', sub: `GEN 0 → ${fin.gen}`, sub2: `${m1(d0)} → ${m1(dF)}` },
+  format: 'softevo-reel/2', template: 'drop16',
+  episode: EP, tag: TAG, seed: SEED, bodySeed: body.seed, generations: GENS,
+  fps: VFPS, bpm: BPM, beat: BEAT, frames: F.end, at: F,
+  settings, blueprint: body.bp,
+  goal: G,
+  stride: lock ? { period: r2(lock.P), drop: r2(lock.tStar), victorySpeed: r2(lock.sV), approachSpeed: r2(lock.sA) } : null,
+  stats: { g0: r2(fail.d / 100), final: r2(fin.nose / 100), finalGen: fin.gen, almostGen: al.gen, gapCm, cross: r2(c), tries, failKind: fail.kind, failIndex: fail.k, nodes: body.bp.nodes.length, muscles: body.bp.edges.filter(e => e.type === 'muscle').length, neurons: layout.sizes.reduce((a, b) => a + b, 0) },
+  genomes: { f0: b64(fail.g), [m1.gen]: b64(m1.g), [m2.gen]: b64(m2.g), [al.gen]: b64(al.g), [fin.gen]: b64(fin.g) },
+  segments, events, texts,
+  cover: { top: texts.title, a: 'GEN 0', b: `GEN ${fin.gen}`, aSub: m(fail.d), bSub: m(fin.nose) },
   caption, hashtags,
 };
 fs.mkdirSync(path.dirname(OUT), { recursive: true });
 fs.writeFileSync(OUT, JSON.stringify(episode, null, 1));
-const total = shots.reduce((a, s) => a + s.sec, 0);
-console.log(`\n書き出し: ${path.relative(process.cwd(), OUT)}  (${total.toFixed(1)} 秒)`);
-console.log(`  ${d0.toFixed(2)} m → ${dF.toFixed(2)} m (第${fin.gen}世代)`);
-for (const s of shots) console.log(`  ${s.end ? 'END' : s.caption.padEnd(8)}  ${s.sec}s  ${s.sub || ''}`);
+console.log(`\n書き出し: ${path.relative(process.cwd(), OUT)}  (16 秒・${F.end} コマ)`);
+console.log(`  ゴール ${G} m (最終世代 ${fin.gen} が ${c.toFixed(2)} 秒で到達・12秒で ${m(fin.nose)})`);
+console.log(lock ? `  歩調: 1歩 ${lock.P.toFixed(3)} 秒 → ドロップ = ${lock.tStar.toFixed(3)} 秒の着地・勝利の走り ×${lock.sV.toFixed(2)} (1拍 ${(0.5 * lock.sV / lock.P).toFixed(2)} 歩)` : '  歩調: 不規則なので拍には合わせない');
+console.log(`  第0世代 #${fail.k} ${fail.kind}${fI != null ? ` (倒れる瞬間 = ${fI} コマ目)` : ''}  →  第${m1.gen}世代 ${m(m1.nose)}  →  第${m2.gen}世代 ${m(m2.nose)}  →  第${al.gen}世代 ${m(al.nose)} (${gapCm} cm 手前)`);
