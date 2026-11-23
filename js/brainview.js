@@ -11,12 +11,22 @@ import { fitCanvas, clamp, signedColor, muscleColor, PAL, pixelDisc, dotSpace, t
 
 const GROUP_COLOR = { stretch: PAL.p2, touch: PAL.g2, body: PAL.b2, clock: PAL.t3 };
 const GROUP_NAME = { stretch: '筋の伸び', touch: '接地', body: '姿勢/速度', clock: 'リズム' };
+/** 脳の図の文言。英語のリール用に差し替えられる (brainView.text = BRAIN_TEXT_EN) */
+const BRAIN_TEXT_JA = { senses: '感覚', hidden: '隠れ層', muscles: '筋肉', groups: GROUP_NAME, input: p => p.label, output: o => o.label };
+export const BRAIN_TEXT_EN = {
+  senses: 'SENSES', hidden: 'HIDDEN', muscles: 'MUSCLES',
+  groups: { stretch: 'stretch', touch: 'touch', body: 'balance', clock: 'rhythm' },
+  input: p => p.group === 'stretch' ? `M${p.idx + 1} stretch` : p.group === 'touch' ? `P${p.idx + 1} touch`
+    : p.group === 'body' ? ['tilt sin', 'tilt cos', 'speed →', 'speed ↑'][p.idx] : ['rhythm sin', 'rhythm cos'][p.idx],
+  output: o => `M${o.idx + 1}`,
+};
 
 export class BrainView {
   constructor(canvas, hooks = {}) {
     this.canvas = canvas;
     this.hooks = hooks;
     this.mode = 'activity';
+    this.text = BRAIN_TEXT_JA;
     this.sel = null;
     this.hover = null;
     this.layout = null;
@@ -158,7 +168,8 @@ export class BrainView {
 
     // 見出し
     ctx.font = '11px system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = PAL.n5;
-    for (let l = 0; l < L; l++) ctx.fillText(l === 0 ? '感覚' : l === L - 1 ? '筋肉' : `隠れ層${L > 3 ? l : ''}`, pos[l][0].x, 13);
+    const TX = this.text;
+    for (let l = 0; l < L; l++) ctx.fillText(l === 0 ? TX.senses : l === L - 1 ? TX.muscles : `${TX.hidden}${L > 3 ? l : ''}`, pos[l][0].x, 13);
 
     // 最大重み
     let maxW = 0.001;
@@ -254,21 +265,21 @@ export class BrainView {
         const p = pos[0][i];
         const isF = focus && focus.l === 0 && focus.i === i;
         ctx.fillStyle = isF ? PAL.white : GROUP_COLOR[inp.group];
-        ctx.fillText(inp.label, p.x - this.r0 - 5, p.y);
+        ctx.fillText(TX.input(inp), p.x - this.r0 - 5, p.y);
       });
     } else {
       // 小さすぎる時はグループ名だけ
       ctx.font = '11px system-ui'; ctx.textAlign = 'right';
       for (const gr of this.groups) {
         const a = pos[0][gr.start], b = pos[0][gr.start + gr.n - 1];
-        ctx.fillStyle = GROUP_COLOR[gr.g]; ctx.fillText(GROUP_NAME[gr.g], a.x - this.r0 - 5, (a.y + b.y) / 2);
+        ctx.fillStyle = GROUP_COLOR[gr.g]; ctx.fillText(TX.groups[gr.g], a.x - this.r0 - 5, (a.y + b.y) / 2);
       }
     }
     ctx.font = '11px system-ui'; ctx.textAlign = 'left';
     outputs.forEach((o, j) => {
       const p = pos[L - 1][j], r = this.radius(L - 1);
       ctx.fillStyle = muscleColor(j, 2);
-      ctx.fillText(o.label, p.x + r + 15, p.y);
+      ctx.fillText(TX.output(o), p.x + r + 15, p.y);
     });
     ctx.textBaseline = 'alphabetic';
   }
