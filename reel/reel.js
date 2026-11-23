@@ -176,11 +176,11 @@ async function renderFrame(i) {
   // つかみ (最初の数秒): 空の部分にタイプライターで (生物は隠さない)
   if (hooking) {
     const [l1, l2 = ''] = shot.hook;
-    X.fillStyle = PAL.ink; X.fillRect(0, R.y + 6, W, 150);
-    X.fillStyle = CHK_INK; X.fillRect(0, R.y + 156, W, 12);
+    X.fillStyle = PAL.ink; X.fillRect(0, R.y + 6, W, 134);
+    X.fillStyle = CHK_INK; X.fillRect(0, R.y + 140, W, 9);
     const t1 = typed(l1, f), t2 = typed(l2, f - l1.length / 1.6 - 4);
-    text(t1 + (t2 ? '' : (f >> 3) % 2 ? '▮' : ''), W / 2, R.y + 76, 64, PAL.white);
-    if (t2) text(t2 + ((f >> 3) % 2 ? '▮' : ''), W / 2, R.y + 140, 48, PAL.g2);
+    text(t1 + (t2 ? '' : (f >> 3) % 2 ? '▮' : ''), W / 2, R.y + 70, 64, PAL.white);
+    if (t2) text(t2 + ((f >> 3) % 2 ? '▮' : ''), W / 2, R.y + 124, 48, PAL.g2);
   }
 
   // 世代のバー
@@ -264,14 +264,14 @@ window.REEL = {
 };
 
 // ─── プレビュー (再生・シーク・安全領域・表紙) ───
-let playing = false, pos = 0, last = 0, showCover = false;
+let playing = false, pos = 0, fpos = 0, last = 0, showCover = false;
 const $ = s => document.querySelector(s);
 const seekEl = $('#seek'), timeEl = $('#time'), playEl = $('#play');
 seekEl.max = TOTAL - 1;
 $('#guides').checked = guides;
 const show = async i => { pos = i; seekEl.value = i; timeEl.textContent = `${(i / VFPS).toFixed(1)} / ${(TOTAL / VFPS).toFixed(1)} s`; showCover = false; await REEL.seek(i); };
-playEl.onclick = () => { playing = !playing; playEl.textContent = playing ? '❚❚ Pause' : '▶ Play'; if (playing && pos >= TOTAL - 1) pos = 0; last = performance.now(); };
-seekEl.oninput = () => { playing = false; playEl.textContent = '▶ Play'; show(+seekEl.value); };
+playEl.onclick = () => { playing = !playing; playEl.textContent = playing ? '❚❚ Pause' : '▶ Play'; if (playing && pos >= TOTAL - 1) pos = 0; fpos = pos; last = performance.now(); };
+seekEl.oninput = () => { playing = false; playEl.textContent = '▶ Play'; fpos = +seekEl.value; show(fpos); };
 $('#guides').onchange = e => { guides = e.target.checked; showCover ? REEL.cover() : show(pos); };
 $('#cover').onclick = async () => { playing = false; playEl.textContent = '▶ Play'; showCover = true; await REEL.cover(); };
 window.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); playEl.onclick(); } });
@@ -279,8 +279,10 @@ if (CAPTURE) document.querySelectorAll('.bar, #note').forEach(e => e.remove());
 await show(0);
 const loop = async t => {
   if (playing && !busy) {
-    const next = Math.min(TOTAL - 1, Math.floor(pos + (t - last) / 1000 * VFPS));
+    // 1コマに満たない進みもためておく (捨てると止まってしまう)
+    fpos = Math.min(TOTAL - 1, fpos + Math.max(0, t - last) / 1000 * VFPS);
     last = t;
+    const next = Math.floor(fpos);
     if (next !== pos) await show(next);
     if (pos >= TOTAL - 1) { playing = false; playEl.textContent = '▶ Play'; }
   } else last = t;
