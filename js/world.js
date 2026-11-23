@@ -237,11 +237,17 @@ export function drawWorld(ctx, cam, w, h, terrain, deco = {}) {
   ctx.font = '11px system-ui'; ctx.textAlign = 'center';
   for (const [t, lx, ly, col] of labels) { ctx.fillStyle = col; ctx.fillText(t, lx, ly); }
   if (flag) {
+    // 旗の文字は生物 (deco.avoid) と重ならない側に。どちらも重なるなら出さない (旗だけで分かる)
     ctx.font = '11px system-ui';
-    const tw = ctx.measureText(deco.record.label).width;
-    const right = flag.sx + flag.fw + 6 + tw < w - 6;
-    ctx.textAlign = right ? 'left' : 'right'; ctx.fillStyle = PAL.g2;
-    ctx.fillText(deco.record.label, right ? flag.sx + flag.fw + 6 : flag.sx - 6, flag.top + 11);
+    const tw = ctx.measureText(deco.record.label).width, ty = flag.top + 11;
+    const hit = (x0, x1) => deco.avoid && x1 > deco.avoid[0] && x0 < deco.avoid[2] && ty > deco.avoid[1] && ty - 12 < deco.avoid[3];
+    const R = [flag.sx + flag.fw + 6, flag.sx + flag.fw + 6 + tw], L = [flag.sx - 6 - tw, flag.sx - 6];
+    const side = [R, L].find(([x0, x1]) => x0 > 4 && x1 < w - 4 && !hit(x0, x1));
+    if (side) {
+      ctx.textAlign = 'left'; ctx.lineJoin = 'round';
+      ctx.strokeStyle = PAL.ink; ctx.lineWidth = 3; ctx.strokeText(deco.record.label, side[0], ty);
+      ctx.fillStyle = PAL.g2; ctx.fillText(deco.record.label, side[0], ty);
+    }
   }
 }
 

@@ -185,7 +185,15 @@ export class Theater {
     const targetY = env.objective === 'jump' ? Math.max(cy, gy + h * 0.28 / Z) : gy + h * 0.22 / Z;
     this.cam.y += (targetY - this.cam.y) * 0.08;
 
-    drawWorld(ctx, this.cam, w, h, env.terrain, { startX: this.main.startX, record: this.spec.record });
+    // 生物が画面のどこにいるか (旗の文字などを重ねないため)
+    const mn = this.main;
+    let ax0 = Infinity, ax1 = -Infinity, ay0 = Infinity, ay1 = -Infinity;
+    for (let i = 0; i < mn.n; i++) {
+      const sx = this.cam.sx(mn.x[i], w), sy = this.cam.sy(mn.y[i], h);
+      ax0 = Math.min(ax0, sx); ax1 = Math.max(ax1, sx); ay0 = Math.min(ay0, sy); ay1 = Math.max(ay1, sy);
+    }
+    const avoid = [ax0 - 14, ay0 - 30, ax1 + 14, ay1 + 8]; // 頭上の距離の表示ぶんも空ける
+    drawWorld(ctx, this.cam, w, h, env.terrain, { startX: this.main.startX, record: this.spec.record, avoid });
 
     ctx.save(); this.cam.apply(ctx, w, h);
     // 軌跡
@@ -237,9 +245,11 @@ export class Theater {
       const l = u.lane;
       let label = l.label;
       const cx = u.centroid()[0];
-      const cam = u._cam || (u._cam = Object.assign(new Camera(), { x: cx }));
+      // 生物はレーンの右寄り (64%) に映す。左側は札のために空けておく
+      const tx = cx - w * 0.14 / Z;
+      const cam = u._cam || (u._cam = Object.assign(new Camera(), { x: tx }));
       cam.zoom = Z;
-      cam.x += (cx - cam.x) * 0.15;
+      cam.x += (tx - cam.x) * 0.15;
       cam.y = groundY(l.env.terrain, cx) + lh * 0.25 / Z;
       drawWorld(ctx, cam, w, lh, l.env.terrain, { startX: u.startX });
       ctx.save(); cam.apply(ctx, w, lh);
@@ -252,18 +262,22 @@ export class Theater {
       }
       drawCreature(ctx, u, {});
       ctx.restore();
-      label += `  ${formatFitness(u.fitness(l.env.objective), l.env.objective)}`;
-      if (l.rank) label = `${l.rank} ${label}`;
-      else if (bodies.length > 1) {
-        const gap = lead - dist(u);
-        label = `${order.indexOf(u) + 1}位 ${label}${gap > 5 ? `  (−${(gap / 100).toFixed(2)}m)` : ''}`;
-      }
-      ctx.font = '12px system-ui'; ctx.textAlign = 'left';
-      const tw = Math.min(w - 16, ctx.measureText(label).width + 24);
-      ctx.fillStyle = PAL.ink; ctx.fillRect(8, 8, tw, 22);
-      ctx.fillStyle = hueColor(l.hue ?? 200, 2); ctx.fillRect(8, 8, 4, 22);
-      ctx.fillStyle = PAL.white;
-      ctx.fillText(label, 18, 24);
+      // 札: 左上に小さく。箱で塗らずに縁取りの文字で (後ろが透けて見える)。幅はレーンの半分まで
+      const rank = l.rank || (bodies.length > 1 ? `${order.indexOf(u) + 1}位` : '');
+      const dist = formatFitness(u.fitness(l.env.objective), l.env.objective);
+      const maxW = w * 0.48 - 16;
+      let fs = lh < 60 ? 11 : 12, name = label;
+      const text = () => `${rank ? rank + ' ' : ''}${name}  ${dist}`;
+      ctx.font = `${fs}px system-ui`;
+      while (ctx.measureText(text()).width > maxW && fs > 9) ctx.font = `${--fs}px system-ui`;
+      while (ctx.measureText(text()).width > maxW && name.length > 2) name = name.slice(0, -2) + '…';
+      const ty = 5 + fs;
+      ctx.fillStyle = PAL.ink; ctx.fillRect(5, 5, 6, fs + 3);
+      ctx.fillStyle = hueColor(l.hue ?? 200, 2); ctx.fillRect(6, 6, 4, fs + 1);
+      ctx.textAlign = 'left'; ctx.lineJoin = 'round';
+      ctx.strokeStyle = PAL.ink; ctx.lineWidth = 3; ctx.strokeText(text(), 15, ty);
+      ctx.fillStyle = order.indexOf(u) === 0 && bodies.length > 1 ? PAL.g2 : PAL.white; // 先頭だけ金色
+      ctx.fillText(text(), 15, ty);
       ctx.restore();
       ctx.fillStyle = PAL.n4; ctx.fillRect(0, (i + 1) * lh - 2, w, 2);
     });
