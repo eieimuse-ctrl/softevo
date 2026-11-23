@@ -134,7 +134,7 @@ function patchCtx(c, st) {
   const text = stroke => function (s, x, y, mw) {
     st.texts.push({
       s: String(s), x, y, mw, stroke, m: this.getTransform(), font: this.font, align: this.textAlign, base: this.textBaseline,
-      style: snapCss(stroke ? this.strokeStyle : this.fillStyle, this.globalAlpha), lw: this.lineWidth, clip: st.clip,
+      style: snapCss(stroke ? this.strokeStyle : this.fillStyle, this.globalAlpha), lw: this.lineWidth, lj: this.lineJoin, clip: st.clip,
     });
   };
   c.fillText = text(false);
@@ -173,7 +173,7 @@ function present(st) {
     const m = t.m;
     h.setTransform(m.a * k, m.b * k, m.c * k, m.d * k, m.e * k, m.f * k);
     h.font = t.font; h.textAlign = t.align; h.textBaseline = t.base;
-    if (t.stroke) { h.strokeStyle = t.style; h.lineWidth = t.lw; h.strokeText(t.s, t.x, t.y, t.mw); }
+    if (t.stroke) { h.strokeStyle = t.style; h.lineWidth = t.lw; h.lineJoin = t.lj; if (t.mw != null) h.strokeText(t.s, t.x, t.y, t.mw); else h.strokeText(t.s, t.x, t.y); }
     else { h.fillStyle = t.style; if (t.mw != null) h.fillText(t.s, t.x, t.y, t.mw); else h.fillText(t.s, t.x, t.y); }
     h.restore();
   }
