@@ -1,14 +1,14 @@
 {
  "format": "softevo-reel/2",
  "template": "drop16",
- "hook": "fail",
+ "hook": "compare",
  "creature": {
   "name": null,
   "color": "red"
  },
  "episode": 2,
  "tag": "#002",
- "seed": 2707603828,
+ "seed": 2440713515,
  "bodySeed": 1937814308,
  "generations": 300,
  "fps": 30,
@@ -227,8 +227,41 @@
  },
  "segments": [
   {
-   "id": "hook",
+   "id": "split",
    "from": 0,
+   "to": 30,
+   "genome": "f0",
+   "gen": 0,
+   "map": [
+    [
+     0,
+     0
+    ],
+    [
+     15,
+     0.65
+    ],
+    [
+     60,
+     2.15
+    ]
+   ],
+   "genomeB": "120",
+   "genB": 120,
+   "mapB": [
+    [
+     0,
+     5.807
+    ],
+    [
+     30,
+     6.724
+    ]
+   ]
+  },
+  {
+   "id": "hook",
+   "from": 30,
    "to": 60,
    "genome": "f0",
    "gen": 0,
@@ -355,6 +388,10 @@
   {
    "f": 15,
    "type": "bonk"
+  },
+  {
+   "f": 30,
+   "type": "cut"
   },
   {
    "f": 60,
