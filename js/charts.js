@@ -7,6 +7,7 @@
    ===================================================================== */
 import { fitCanvas, clamp, muscleColor, hueColor, PAL } from './ui.js';
 import { TERRAINS } from './sim.js';
+import { tr, genLabel } from './i18n.js';
 
 const unitDiv = obj => obj === 'jump' ? 1 : 100;
 const unitName = obj => obj === 'jump' ? 'cm' : obj === 'efficiency' ? 'pt' : 'm';
@@ -37,7 +38,7 @@ export class TimelineChart {
     const run = this.run, H = run && run.history;
     if (!H || H.length < 1) {
       ctx.fillStyle = PAL.n5; ctx.font = '13px system-ui'; ctx.textAlign = 'center';
-      ctx.fillText('世代が進むとここに進化の軌跡が描かれます', w / 2, h / 2); return;
+      ctx.fillText(tr('世代が進むとここに進化の軌跡が描かれます', 'The path of evolution is drawn here as generations pass'), w / 2, h / 2); return;
     }
     const obj = run.settings.objective, ud = unitDiv(obj);
     const px0 = 44, px1 = w - 12, py0 = 26, py1 = h - 22;
@@ -128,7 +129,7 @@ export class TimelineChart {
       ctx.beginPath(); ctx.moveTo(x, py0); ctx.lineTo(x, py1); ctx.stroke();
       // 札はグラフの下の方に (上の凡例・ホバーの吹き出しと重ならないように)
       ctx.font = '11px system-ui';
-      const lab = `▶ 第${this.selected}世代`, lw = ctx.measureText(lab).width + 10;
+      const lab = `▶ ${genLabel(this.selected)}`, lw = ctx.measureText(lab).width + 10;
       const lx = clamp(x - lw / 2, px0, px1 - lw), ly = py1 - 22;
       ctx.fillStyle = PAL.p2; ctx.fillRect(lx - 2, ly - 2, lw + 4, 20);
       ctx.fillStyle = PAL.ink; ctx.fillRect(lx, ly, lw, 16);
@@ -144,7 +145,7 @@ export class TimelineChart {
         ctx.strokeStyle = PAL.n5; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(x, py0); ctx.lineTo(x, py1); ctx.stroke();
         const dg = 2;
-        const txt = `第${g}世代  最高 ${(e.best / ud).toFixed(dg)}  中央 ${(e.median / ud).toFixed(dg)}${unitName(obj)}`;
+        const txt = tr(`第${g}世代  最高 ${(e.best / ud).toFixed(dg)}  中央 ${(e.median / ud).toFixed(dg)}${unitName(obj)}`, `Gen ${g}  best ${(e.best / ud).toFixed(dg)}  median ${(e.median / ud).toFixed(dg)}${unitName(obj)}`);
         ctx.font = '11px system-ui';
         const tw = ctx.measureText(txt).width + 12, tx = clamp(x + 8, px0, w - tw - 4);
         ctx.fillStyle = PAL.n5; ctx.fillRect(tx - 2, py0 - 2, tw + 4, 22);
@@ -154,7 +155,7 @@ export class TimelineChart {
     }
     // 凡例
     ctx.font = '11px system-ui'; ctx.textAlign = 'left';
-    const lg = [[PAL.g2, '最高記録'], [PAL.n6, '中央値'], [PAL.n3, '上位〜下位10%']];
+    const lg = [[PAL.g2, tr('最高記録', 'best')], [PAL.n6, tr('中央値', 'median')], [PAL.n3, tr('上位〜下位10%', 'top–bottom 10%')]];
     let lx = px0 + 4;
     for (const [c, t] of lg) { ctx.fillStyle = c; ctx.fillRect(lx, 8, 10, 4); ctx.fillStyle = PAL.n6; ctx.fillText(t, lx + 14, 14); lx += ctx.measureText(t).width + 30; }
   }
@@ -182,13 +183,13 @@ export class GaitChart {
     const rh = Math.max(4, Math.min(18, (h - top - 6 - gap) / Math.max(1, rows)));
     const cw = (w - LW - 8) / HIST;
     ctx.font = '11px system-ui'; ctx.fillStyle = PAL.n5; ctx.textAlign = 'left';
-    ctx.fillText('筋肉の収縮 (明るい=縮む)', LW, 12);
-    ctx.textAlign = 'right'; ctx.fillText('← 4秒前   いま →', w - 8, 12);
+    ctx.fillText(tr('筋肉の収縮 (明るい=縮む)', 'Muscle contraction (bright = contracting)'), LW, 12);
+    ctx.textAlign = 'right'; ctx.fillText(tr('← 4秒前   いま →', '← 4 s ago   now →'), w - 8, 12);
     const n = th.filled, head = th.head;
     for (let j = 0; j < M; j++) {
       const y = top + j * rh, row = th.gaitOut[j];
       ctx.fillStyle = muscleColor(j, 2); ctx.textAlign = 'right'; ctx.font = `${Math.min(11, rh)}px system-ui`;
-      ctx.fillText(`筋${j + 1}`, LW - 6, y + rh * 0.75);
+      ctx.fillText(tr(`筋${j + 1}`, `M${j + 1}`), LW - 6, y + rh * 0.75);
       for (let k = 0; k < n; k++) {
         const idx = (head - n + k + HIST) % HIST, v = row[idx];
         const con = Math.max(0, -v), ext = Math.max(0, v);
@@ -200,7 +201,7 @@ export class GaitChart {
     feet.forEach((i, r) => {
       const y = y0 + r * rh, row = th.gaitTouch[i];
       ctx.fillStyle = PAL.g2; ctx.textAlign = 'right'; ctx.font = `${Math.min(11, rh)}px system-ui`;
-      ctx.fillText(`点${i + 1}`, LW - 6, y + rh * 0.75);
+      ctx.fillText(tr(`点${i + 1}`, `P${i + 1}`), LW - 6, y + rh * 0.75);
       ctx.fillStyle = PAL.n1; ctx.fillRect(LW, y, w - LW - 8, rh - 1);
       ctx.fillStyle = PAL.g2;
       for (let k = 0; k < n; k++) {
@@ -210,7 +211,7 @@ export class GaitChart {
     });
     if (feet.length) {
       ctx.fillStyle = PAL.g1; ctx.textAlign = 'left'; ctx.font = '10px system-ui';
-      ctx.fillText('接地 (歩容図)', LW, y0 - 1);
+      ctx.fillText(tr('接地 (歩容図)', 'Ground contact (gait chart)'), LW, y0 - 1);
     }
   }
 }
@@ -231,7 +232,7 @@ export class CladeChart {
     const run = this.run; this.hits = [];
     if (!run || run.cladeHist.length < 2) {
       ctx.fillStyle = PAL.n5; ctx.font = '13px system-ui'; ctx.textAlign = 'center';
-      ctx.fillText('大きく記録を更新した個体は新しい系統の祖になります', w / 2, h / 2); return;
+      ctx.fillText(tr('大きく記録を更新した個体は新しい系統の祖になります', 'A big record-breaker becomes the founder of a new lineage'), w / 2, h / 2); return;
     }
     // 系統樹の深さ優先順 (子は親のすぐ上に積む)
     const clades = run.clades;
@@ -277,7 +278,7 @@ export class CladeChart {
       }
     }
     ctx.fillStyle = PAL.n5; ctx.font = '11px system-ui'; ctx.textAlign = 'left';
-    ctx.fillText(`第${samples[0].g}世代`, px0, h - 6);
-    ctx.textAlign = 'right'; ctx.fillText(`第${samples[samples.length - 1].g}世代`, px1, h - 6);
+    ctx.fillText(genLabel(samples[0].g), px0, h - 6);
+    ctx.textAlign = 'right'; ctx.fillText(genLabel(samples[samples.length - 1].g), px1, h - 6);
   }
 }

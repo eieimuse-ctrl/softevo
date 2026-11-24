@@ -1,4 +1,5 @@
 /* SoftEvo — ui.js : 小さなUIヘルパー + ドット絵の描画 */
+import { tr } from './i18n.js';
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
@@ -266,7 +267,7 @@ export function confirmDialog(title, body, okLabel = 'OK', danger = false) {
       el('h3', {}, title),
       el('p', {}, body),
       el('div', { class: 'modal-actions' },
-        el('button', { class: 'btn ghost', onclick: () => done(false) }, 'キャンセル'),
+        el('button', { class: 'btn ghost', onclick: () => done(false) }, tr('キャンセル', 'Cancel')),
         el('button', { class: `btn ${danger ? 'danger' : 'primary'}`, onclick: () => done(true) }, okLabel)));
     back.append(box);
     back.addEventListener('pointerdown', e => { if (e.target === back) done(false); });
@@ -275,7 +276,7 @@ export function confirmDialog(title, body, okLabel = 'OK', danger = false) {
 }
 
 /** 1行の文字入力 (ブラウザの prompt の代わり)。キャンセルなら null */
-export function askText(title, { value = '', placeholder = '', max = 16, okLabel = '決定', note = '' } = {}) {
+export function askText(title, { value = '', placeholder = '', max = 16, okLabel = tr('決定', 'OK'), note = '' } = {}) {
   return new Promise(resolve => {
     const back = el('div', { class: 'modal-back' });
     const input = el('input', { class: 'on-input ask-input', maxlength: max, placeholder, value, enterkeyhint: 'done' });
@@ -287,7 +288,7 @@ export function askText(title, { value = '', placeholder = '', max = 16, okLabel
       note ? el('p', { class: 'dim' }, note) : null,
       input,
       el('div', { class: 'modal-actions' },
-        el('button', { class: 'btn ghost', onclick: () => done(null) }, 'キャンセル'),
+        el('button', { class: 'btn ghost', onclick: () => done(null) }, tr('キャンセル', 'Cancel')),
         el('button', { class: 'btn primary', onclick: ok }, okLabel))));
     back.addEventListener('pointerdown', e => { if (e.target === back) done(null); });
     document.body.append(back);
@@ -299,7 +300,7 @@ export function infoDialog(title, html) {
   const back = el('div', { class: 'modal-back' });
   const box = el('div', { class: 'modal wide' }, el('h3', {}, title));
   const body = el('div', { class: 'modal-body' }); body.innerHTML = html;
-  box.append(body, el('div', { class: 'modal-actions' }, el('button', { class: 'btn primary', onclick: () => back.remove() }, 'とじる')));
+  box.append(body, el('div', { class: 'modal-actions' }, el('button', { class: 'btn primary', onclick: () => back.remove() }, tr('とじる', 'Close'))));
   back.append(box);
   back.addEventListener('pointerdown', e => { if (e.target === back) back.remove(); });
   document.body.append(back);

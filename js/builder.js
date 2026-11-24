@@ -9,6 +9,7 @@
 import { NODE_R, Creature, brainLayout, randomGenome, makeRng, cloneBlueprint, validateBlueprint } from './sim.js';
 import { Camera, drawCreature, staticBody } from './world.js';
 import { fitCanvas, clamp, PAL, checker, dotSpace } from './ui.js';
+import { tr } from './i18n.js';
 
 const SNAP = 5;
 const MAX_NODES = 24, MAX_EDGES = 64;
@@ -48,7 +49,7 @@ export class Builder {
   }
 
   addNode(x, y, withMirror = true) {
-    if (this.bp.nodes.length >= MAX_NODES) { this.onHint(`ノードは最大${MAX_NODES}個までです`, true); return -1; }
+    if (this.bp.nodes.length >= MAX_NODES) { this.onHint(tr(`ノードは最大${MAX_NODES}個までです`, `Up to ${MAX_NODES} nodes`), true); return -1; }
     x = Math.round(x / SNAP) * SNAP; y = Math.max(0, Math.round(y / SNAP) * SNAP);
     const near = this.bp.nodes.findIndex(q => Math.hypot(q.x - x, q.y - y) < NODE_R * 1.6);
     if (near >= 0) return near;
@@ -67,7 +68,7 @@ export class Builder {
     const k = this.edgeIndex(a, b);
     if (k >= 0) this.bp.edges[k].type = type;
     else if (this.bp.edges.length < MAX_EDGES) this.bp.edges.push({ a, b, type });
-    else { this.onHint(`接続は最大${MAX_EDGES}本までです`, true); return; }
+    else { this.onHint(tr(`接続は最大${MAX_EDGES}本までです`, `Up to ${MAX_EDGES} connections`), true); return; }
     if (this.mirror && withMirror) {
       const ma = this.mirrorOf(a), mb = this.mirrorOf(b);
       if (ma >= 0 && mb >= 0 && !(ma === a && mb === b) && !(ma === b && mb === a)) this.setEdge(ma, mb, type, false);
@@ -237,7 +238,7 @@ export class Builder {
         this.snapshot(); const ni = this.addNode(p.x, p.y);
         if (ni >= 0) this.setEdge(this.pending, ni, type);
         this.pending = ni; this.changed();
-      } else this.onHint(this.tool === 'muscle' ? 'ノードからノードへドラッグして筋肉をつなぐ' : 'ノードからノードへドラッグして骨をつなぐ');
+      } else this.onHint(this.tool === 'muscle' ? tr('ノードからノードへドラッグして筋肉をつなぐ', 'Drag from node to node to add a muscle') : tr('ノードからノードへドラッグして骨をつなぐ', 'Drag from node to node to add a bone'));
     }
   }
 
@@ -309,7 +310,7 @@ export class Builder {
       drawCreature(ctx, pv, {});
       ctx.restore();
       ctx.fillStyle = PAL.g2; ctx.textAlign = 'left'; ctx.font = '12px system-ui';
-      ctx.fillText('試運転中 — ランダムな脳で動かしています (タップで終了)', 12, 66);
+      ctx.fillText(tr('試運転中 — ランダムな脳で動かしています (タップで終了)', 'Test drive — running with a random brain (tap to stop)'), 12, 66);
       return;
     }
 
