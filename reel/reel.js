@@ -5,8 +5,9 @@
    ・コマ番号 → シミュレーションの時刻 (エピソードの map) → 生物の姿。物理は決定論なので
      どのコマから描いても同じ画になる (巻き戻し・スロー・倍速も自由)
    ・カット・文字・揺れ・紙吹雪はすべて拍 (15コマ) の頭にそろえてある。曲は reel/music.mjs
+   ・最初の1秒は3通り (ep.hook): compare 上下比較 / fail 失敗だけ / preview 成功の先出し
    ・window.REEL.seek(i) で i コマ目を描く → reel/capture.mjs が PNG 連番と MP4 に
-   ・Reels の UI に隠れる所 (上 250px・下・右下のボタン列) を避けてある
+   ・文字は安全域 (上14%・下35%・左右6%) の中。世界と脳は下の方まで大きく使う
    ===================================================================== */
 // 部品は 3 倍の解像度で描く (どの端末で開いても 1080×1920 にぴったり合成できるように)
 Object.defineProperty(window, 'devicePixelRatio', { configurable: true, get: () => 3 });
@@ -14,18 +15,20 @@ Object.defineProperty(window, 'devicePixelRatio', { configurable: true, get: () 
 import { Creature, brainLayout, groundY, DEFAULT_SETTINGS, FPS } from '../js/sim.js';
 import { Camera, drawWorld, drawCreature } from '../js/world.js';
 import { BrainView, BRAIN_TEXT_EN } from '../js/brainview.js';
-import { fitCanvas, PAL, clamp, dotSpace } from '../js/ui.js';
+import { fitCanvas, PAL, clamp, dotSpace, hueColor } from '../js/ui.js';
 import { b64ToF32 } from '../js/store.js';
 
 const W = 1080, H = 1920, S = 3;
 const FONT = '"DotGothic16", monospace';
 // ─── レイアウト (px は 1080×1920 の座標) ───
 const LAY = {
-  title: 324,                                    // AI LEARNS TO WALK
-  world: { x: 0, y: 354, w: 1080, h: 600 },      // 世界 (CSS 360×200)。上の 54px は進み具合のバー
-  brain: { x: 42, y: 990, w: 888, h: 300 },      // 脳 (CSS 296×100)。右はボタンの列を空ける
-  safe: { top: 250, bottom: 1280, right: 960 },  // Reels の UI に隠れる所 (目安)
+  title: 334,                                    // AI LEARNS TO WALK #001
+  world: { x: 0, y: 360, w: 1080, h: 660 },      // 世界 (CSS 360×220)。上の 54px は進み具合のバー
+  brain: { x: 42, y: 1056, w: 888, h: 612 },     // 脳 (CSS 296×204)。右はボタンの列を空ける
+  split: { a: 372, b: 948, h: 480, mid: 922 },   // 上下比較の窓 (CSS 360×160 ×2)
+  safe: { top: 269, bottom: 1248, side: 65 },    // 文字の安全域 (上14%・下35%・左右6%)
 };
+const GX = 66; // 左端の文字 (左右6%)
 
 const params = new URLSearchParams(location.search);
 const CAPTURE = params.has('capture');
@@ -37,12 +40,17 @@ const layout = brainLayout(bp, settings);
 const env = { terrain: settings.terrain, objective: settings.objective, gravity: settings.gravity, friction: settings.friction, evalSeconds: settings.evalSeconds };
 const VFPS = ep.fps, TOTAL = ep.frames, BEAT = ep.beat, A = ep.at, T = ep.texts, GOAL = ep.goal * 100, EVAL = settings.evalSeconds;
 const genomes = Object.fromEntries(Object.entries(ep.genomes).map(([k, v]) => [k, b64ToF32(v)]));
+// 生物の色 (節点の輪・番号)
+const HUES = { red: 355, orange: 25, lime: 90, teal: 160, blue: 210, purple: 265, pink: 315 };
+const TINT = ep.creature && HUES[ep.creature.color] != null ? HUES[ep.creature.color] : null;
+const TINT_COL = TINT != null ? hueColor(TINT, 2) : PAL.n6;
+const BRAIN_ON = A.brainOn ?? 0;
 
 // ─── 作業用キャンバス ───
 const frame = document.getElementById('frame'), X = frame.getContext('2d');
-const worldCv = document.getElementById('w-world'), brainCv = document.getElementById('w-brain'), coverCv = document.getElementById('w-cover');
+const worldCv = document.getElementById('w-world'), brainCv = document.getElementById('w-brain'), splitCv = document.getElementById('w-split'), coverCv = document.getElementById('w-cover');
 const css = (cv, r) => { cv.style.width = `${r.w / S}px`; cv.style.height = `${r.h / S}px`; };
-css(worldCv, LAY.world); css(brainCv, LAY.brain); css(coverCv, { w: 1080, h: 420 });
+css(worldCv, LAY.world); css(brainCv, LAY.brain); css(splitCv, { w: 1080, h: LAY.split.h }); css(coverCv, { w: 1080, h: 420 });
 const brain = new BrainView(brainCv);
 brain.text = BRAIN_TEXT_EN;
 brain.setRun(layout);
@@ -97,14 +105,16 @@ function mapAt(map, f) {
   }
   return { t: map[0][1], p: 0 };
 }
-const NOSE0 = trackOf(segs[0].genome).nose0;   // どの個体も同じ姿から始まる
+const NOSE0 = trackOf('f0').nose0;   // どの個体も同じ姿から始まる
 const GOAL_X = NOSE0 + GOAL;
 const meters = (tr, k) => Math.max(0, (tr.at(k).nose - tr.nose0) / 100);
 // その場面より前に出た「いちばんの記録」(バーの白い目盛)
 const RESULTS = segs.filter(s => ['hook', 'm1', 'm2', 'almost'].includes(s.id)).map(s => ({ to: s.to, d: meters(trackOf(s.genome), EVAL * FPS) }));
 const bestBefore = sg => RESULTS.filter(r => r.to <= sg.from).reduce((m, r) => Math.max(m, r.d), -1);
+const BONK = ep.events.find(e => e.type === 'bonk');
+const FINAL_GEN = seg('final').gen;
 
-// ─── 画角: 場面ごとに体がよく見える大きさ (幅は窓の42%、高さは空の部分に収まる) ───
+// ─── 画角: 体がよく見える大きさ (幅は窓の半分、高さは空の部分に収まる) ───
 function extents(tr, t0, t1) {
   let w = 0, h = 0;
   for (let k = Math.floor(t0 * FPS); k <= Math.ceil(t1 * FPS); k += 3) {
@@ -115,14 +125,16 @@ function extents(tr, t0, t1) {
   return { w, h };
 }
 const GROUND = 0.76, HUDH = 20; // 地面は窓の上から76% / 上のバーは CSS 20px
-const fitZoom = list => {
+const span = (key, map) => { const ts = map.map(m => m[1]); return extents(trackOf(key), Math.min(...ts), Math.max(...ts)); };
+const fitZoom = (list, cw, ch, hud) => {
   let w = 0, h = 0;
-  for (const s of list) { const tr = trackOf(s.genome), ts = s.map.map(m => m[1]); const e = extents(tr, Math.min(...ts), Math.max(...ts)); w = Math.max(w, e.w); h = Math.max(h, e.h); }
-  return clamp(Math.min(CW * 0.42 / Math.max(30, w), (CH * GROUND - HUDH - 8) / Math.max(20, h)), 0.3, 3);
+  for (const [key, map] of list) { const e = span(key, map); w = Math.max(w, e.w); h = Math.max(h, e.h); }
+  return clamp(Math.min(cw * 0.5 / Math.max(30, w), (ch * GROUND - hud - 8) / Math.max(20, h)), 0.3, 3);
 };
-const ZH = fitZoom([seg('hook')]);
-const ZM = fitZoom(['m1', 'm2', 'almost', 'final'].map(seg));
-console.log(`zoom hook ${ZH.toFixed(2)} / main ${ZM.toFixed(2)}`);
+const ZH = fitZoom([['f0', seg('hook').map]], CW, CH, HUDH);
+const ZM = fitZoom(['m1', 'm2', 'almost', 'final'].map(id => [seg(id).genome, seg(id).map]), CW, CH, HUDH);
+const SPL = seg('split');
+const ZS = SPL ? fitZoom([[SPL.genome, SPL.map], [SPL.genomeB, SPL.mapB]], CW, LAY.split.h / S, 0) : 1;
 
 // ─── 文字 ───
 function text(str, x, y, size, color, align = 'center') {
@@ -154,16 +166,14 @@ const gridPat = (() => { const c = document.createElement('canvas'); c.width = c
 const CHK_INK = pat(PAL.ink), CHK_N7 = pat(PAL.n7), CHK_N4 = pat(PAL.n4), CHK_WHITE = pat(PAL.white, 6);
 
 // ─── 世界の上に描く物 (ドット単位) ───
-function drawGoal(ctx, cam, w, h, lit) {
+function drawGoal(ctx, cam, w, h, lit, hud = HUDH) {
   const s = ctx.getTransform().a;
   const X0 = Math.floor(cam.sx(GOAL_X, w) * s), G = Math.floor(cam.sy(groundY(env.terrain, GOAL_X), h) * s);
   if (X0 < -30 || X0 > w * s + 4) return;
   dotSpace(ctx);
   // ポールは空の6割まで (上の文字と重ならない)
-  const ph = Math.min(Math.max(20, Math.round(110 * cam.zoom * s)), Math.round((G - (HUDH + 6) * s) * 0.6));
-  // 地面のゴールライン (市松)
+  const ph = Math.min(Math.max(20, Math.round(110 * cam.zoom * s)), Math.round((G - (hud + 6) * s) * 0.6));
   for (let r = 0; r < 4; r++) for (let q = -1; q <= 1; q++) { ctx.fillStyle = (r + q + 8) % 2 ? PAL.ink : PAL.white; ctx.fillRect(X0 + q, G + r, 1, 1); }
-  // ポールと旗 (ゴール後は市松の旗)
   ctx.fillStyle = PAL.white; ctx.fillRect(X0, G - ph, 1, ph);
   const fh = Math.max(8, Math.round(ph * 0.3)), fw = Math.round(fh * 1.5);
   for (let r = 0; r < fh; r++) {
@@ -186,7 +196,7 @@ function drawGap(ctx, cam, w, h, nose) {
 // 紙吹雪 (ゴールの旗から。種で決まるので毎回同じ)
 const CONF = (() => {
   let a = 0x9e3779b9; const r = () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-  const cols = [PAL.g2, PAL.t3, PAL.r2, PAL.b2, PAL.p2, PAL.white, PAL.l2, PAL.o2];
+  const cols = [PAL.g2, PAL.t3, PAL.r2, PAL.b2, PAL.p2, PAL.white, PAL.l2, TINT_COL];
   return Array.from({ length: 64 }, (_, i) => ({ vx: (r() - 0.5) * 700, vy: 300 + r() * 650, c: cols[i % cols.length], ph: (r() * 6) | 0, drag: 0.6 + r() * 0.8 }));
 })();
 function drawConfetti(ctx, cam, w, h, f) {
@@ -204,20 +214,69 @@ function drawConfetti(ctx, cam, w, h, f) {
   }
   ctx.restore();
 }
+const followCam = (tr, u, zoom, ch) => {
+  const cam = new Camera(); cam.zoom = zoom;
+  cam.x = tr.camX(u) + 360 * 0.08 / zoom; // 生物は窓の42%に (前の旗が見える)
+  cam.y = groundY(env.terrain, cam.x) + ch * (GROUND - 0.5) / zoom;
+  return cam;
+};
 
-// ─── 1コマを描く ───
-const morph = new Float32Array(genomes[segs[0].genome].length);
+// ─── 共通の部品 ───
+function background() {
+  X.imageSmoothingEnabled = false;
+  X.fillStyle = PAL.n1; X.fillRect(0, 0, W, H);
+  X.fillStyle = gridPat; X.fillRect(0, 0, W, H);
+}
+function title() { // 上の見出し (シリーズの番号は生物の色で)
+  const name = ep.creature && ep.creature.name ? ` ${ep.creature.name}` : '';
+  const tag = `  ${ep.tag}${name}`, wt = width(T.title, 64), wg = width(tag, 48), x = (W - wt - wg) / 2;
+  text(T.title, x, LAY.title, 64, PAL.g2, 'left');
+  text(tag, x + wt, LAY.title, 48, TINT_COL, 'left');
+}
 const SILENT = [[A.timeUp, A.final], [A.slow, A.drop]]; // 曲が止まっている所 (拍で光らせない)
 const onBeat = f => f % BEAT < 2 && !SILENT.some(([a, b]) => f >= a && f < b);
 function shakeAt(f) {
   const hit = (f0, amp, n) => { const k = f - f0; return k >= 0 && k < n ? amp * (1 - k / n) * (k % 2 ? -1 : 1) : 0; };
-  const bonk = ep.events.find(e => e.type === 'bonk');
-  return Math.round(hit(A.drop, 24, 9) + (bonk ? hit(bonk.f, 12, 6) : 0));
+  return Math.round(hit(A.drop, 24, 9) + (BONK ? hit(BONK.f, 12, 6) : 0));
 }
 
+// ─── 上下比較 (最初の1秒): 上に第0世代、下に最終世代、まん中に1行だけ。脳は出さない ───
+async function renderSplit(f, sg) {
+  const panels = [
+    { key: sg.genome, map: sg.map, y: LAY.split.a, label: `GEN ${sg.gen}`, col: PAL.r2 },
+    { key: sg.genomeB, map: sg.mapB, y: LAY.split.b, label: `GEN ${sg.genB}`, col: PAL.g2 },
+  ];
+  const ch = LAY.split.h / S, imgs = [];
+  for (const p of panels) {
+    const tr = trackOf(p.key), u = mapAt(p.map, f).t * FPS, P = tr.pose(u);
+    const cam = followCam(tr, u, ZS, ch);
+    const { ctx, w, h } = fitCanvas(splitCv, { px: 2 });
+    drawWorld(ctx, cam, w, h, env.terrain, { startX: tr.nose0 });
+    ctx.save(); cam.apply(ctx, w, h); drawCreature(ctx, P, { tint: TINT }); ctx.restore();
+    await new Promise(r => setTimeout(r, 0));
+    const c = document.createElement('canvas'); c.width = splitCv.width; c.height = splitCv.height;
+    c.getContext('2d').drawImage(splitCv, 0, 0);
+    imgs.push(c);
+  }
+  background();
+  title();
+  panels.forEach((p, j) => {
+    const sh = j === 0 ? shakeAt(f) : 0;
+    X.fillStyle = PAL.ink; X.fillRect(0, p.y - 12, W, LAY.split.h + 24);
+    X.drawImage(imgs[j], sh, p.y, W, LAY.split.h);
+    X.fillStyle = onBeat(f) ? PAL.n6 : PAL.n4; X.fillRect(0, p.y - 6, W, 6); X.fillRect(0, p.y + LAY.split.h, W, 6);
+    outlined(p.label, GX, p.y + 108, 80, p.col, 'left');
+  });
+  outlined(`↓ ${T.compareMid} ↓`, W / 2, LAY.split.mid, 56, PAL.white);
+}
+
+// ─── 1コマを描く ───
+const morph = new Float32Array(genomes.f0.length);
 async function renderFrame(i) {
   const f = clamp(Math.floor(i), 0, TOTAL - 1);
-  const sg = segAt(f), tr = trackOf(sg.genome);
+  const sg = segAt(f);
+  if (sg.id === 'split') { await renderSplit(f, sg); if (guides && !CAPTURE) drawGuides(); return; }
+  const tr = trackOf(sg.genome);
   const { t } = mapAt(sg.map, f), u = t * FPS;
   // 巻き戻しの進み (0 → 1)。画角・脳の重み・世代の数字をこれでそろえる
   const p = sg.id === 'cta' ? clamp(1 - t / sg.map[0][1], 0, 1) : 0;
@@ -226,89 +285,79 @@ async function renderFrame(i) {
   const k = f - sg.from;
 
   // カメラ
-  let zoom = sg.id === 'hook' ? ZH : ZM, cx = tr.camX(u) + CW * 0.08 / zoom; // 生物は窓の42%に (前の旗が見える)
-  if (sg.id === 'cta') zoom = ZM + (ZH - ZM) * p, cx = tr.camX(u) + CW * 0.08 / zoom;
+  let zoom = sg.id === 'hook' ? ZH : ZM;
+  if (sg.id === 'cta') zoom = ZM + (ZH - ZM) * p;
+  const cam = followCam(tr, u, zoom, CH);
   if (sg.id === 'almost' && f >= A.timeUp) { // 時間切れ: すき間に寄る
     const q = easeOut(clamp((f - A.timeUp) / 6, 0, 1));
-    const mid = (P.nose + GOAL_X) / 2;
-    zoom *= 1 + 0.3 * q; cx = cx + (mid - cx) * q;
+    cam.zoom = zoom * (1 + 0.3 * q);
+    cam.x += ((P.nose + GOAL_X) / 2 - cam.x) * q;
+    cam.y = groundY(env.terrain, cam.x) + CH * (GROUND - 0.5) / cam.zoom;
   }
-  if (f >= A.slow && f < A.drop) zoom *= 1 + 0.14 * smooth((f - A.slow) / (A.drop - A.slow)); // スローでじわっと寄る
-  const cam = new Camera(); cam.zoom = zoom; cam.x = cx; cam.y = groundY(env.terrain, cx) + CH * (GROUND - 0.5) / zoom;
+  if (f >= A.slow && f < A.drop) { // スローでじわっと寄る
+    cam.zoom = zoom * (1 + 0.14 * smooth((f - A.slow) / (A.drop - A.slow)));
+    cam.y = groundY(env.terrain, cam.x) + CH * (GROUND - 0.5) / cam.zoom;
+  }
 
   // 世界と生物 (Softevo のドット描画)
   {
     const { ctx, w, h } = fitCanvas(worldCv, { px: 2 });
     drawWorld(ctx, cam, w, h, env.terrain, { startX: tr.nose0 });
     drawGoal(ctx, cam, w, h, f >= A.drop && f < A.cta);
-    ctx.save(); cam.apply(ctx, w, h); drawCreature(ctx, P, {}); ctx.restore();
+    ctx.save(); cam.apply(ctx, w, h); drawCreature(ctx, P, { tint: TINT }); ctx.restore();
     if (sg.id === 'almost' && f >= A.timeUp) drawGap(ctx, cam, w, h, P.nose);
     drawConfetti(ctx, cam, w, h, f);
   }
-  // 脳 (巻き戻しでは最終世代 → 第0世代のランダムな重みへ戻っていく)
-  if (sg.morphTo) {
-    const g0 = genomes[sg.genome], g1 = genomes[sg.morphTo];
-    for (let j = 0; j < morph.length; j++) morph[j] = g0[j] + (g1[j] - g0[j]) * p;
-    brain.setGenomes(morph, null);
-  } else if (brain.genome !== genomes[sg.genome]) brain.setGenomes(genomes[sg.genome], null);
-  brain.render(snap.acts, null, f / VFPS);
+  // 脳 (巻き戻しでは最終世代 → 第0世代のランダムな重みへ戻っていく)。最初の1拍は出さない (1コマ目をすっきり)
+  const brainOn = f >= BRAIN_ON;
+  if (brainOn) {
+    if (sg.morphTo) {
+      const g0 = genomes[sg.genome], g1 = genomes[sg.morphTo];
+      for (let j = 0; j < morph.length; j++) morph[j] = g0[j] + (g1[j] - g0[j]) * p;
+      brain.setGenomes(morph, null);
+    } else if (brain.genome !== genomes[sg.genome]) brain.setGenomes(genomes[sg.genome], null);
+    brain.render(snap.acts, null, f / VFPS);
+  }
   await new Promise(r => setTimeout(r, 0)); // ドットにそろえて表に出るのを待つ
 
   // ─── 合成 ───
-  X.imageSmoothingEnabled = false;
-  X.fillStyle = PAL.n1; X.fillRect(0, 0, W, H);
-  X.fillStyle = gridPat; X.fillRect(0, 0, W, H);
-  const R = LAY.world, beat = onBeat(f);
-  const sh = shakeAt(f);
+  background();
+  const R = LAY.world, B = LAY.brain, beat = onBeat(f), sh = shakeAt(f);
   X.fillStyle = PAL.ink; X.fillRect(0, R.y - 12, W, R.h + 24);
   X.drawImage(worldCv, R.x + sh, R.y, R.w, R.h);
   X.fillStyle = beat ? PAL.n6 : PAL.n4; X.fillRect(0, R.y - 6, W, 6); X.fillRect(0, R.y + R.h, W, 6);
-  // 脳の窓
-  {
-    const B = LAY.brain;
+  if (brainOn) {
+    const lit = beat || f - BRAIN_ON < 2;
     X.fillStyle = PAL.ink; X.fillRect(B.x - 12, B.y - 12, B.w + 24, B.h + 24);
-    X.fillStyle = beat ? PAL.n6 : PAL.n4; X.fillRect(B.x - 6, B.y - 6, B.w + 12, B.h + 12);
+    X.fillStyle = lit ? PAL.n6 : PAL.n4; X.fillRect(B.x - 6, B.y - 6, B.w + 12, B.h + 12);
     X.fillStyle = PAL.ink; X.fillRect(B.x + B.w + 12, B.y, 12, B.h + 24); X.fillRect(B.x, B.y + B.h + 12, B.w + 24, 12);
     X.drawImage(brainCv, B.x, B.y, B.w, B.h);
   }
   // カットのちらつき (2コマ)
-  if (['m1', 'm2', 'almost', 'final'].includes(sg.id) && k < 2) { X.fillStyle = k === 0 ? CHK_N7 : CHK_N4; X.fillRect(0, R.y, W, R.h); }
+  if (sg.from > 0 && sg.id !== 'cta' && k < 2) { X.fillStyle = k === 0 ? CHK_N7 : CHK_N4; X.fillRect(0, R.y, W, R.h); }
   // スロー: 左右を暗く
   if (f >= A.slow && f < A.drop) { X.fillStyle = CHK_INK; X.fillRect(0, R.y, 150, R.h); X.fillRect(W - 150, R.y, 150, R.h); }
   // ゴールの瞬間: 白く光る
   if (f >= A.drop && f < A.drop + 3) { X.fillStyle = f - A.drop < 2 ? PAL.white : CHK_WHITE; X.fillRect(0, R.y, W, R.h); }
 
-  // 上の見出し (シリーズの番号つき)
-  {
-    const tag = `  ${ep.tag}`, wt = width(T.title, 64), wg = width(tag, 48), x = (W - wt - wg) / 2;
-    text(T.title, x, LAY.title, 64, PAL.g2, 'left');
-    text(tag, x + wt, LAY.title, 48, PAL.n6, 'left');
-  }
+  title();
   hud(f, sg, dist);
   // 世代 (世界の左上。カットのたびに拍に合わせて飛び出す)
-  const GX = 42, GY = R.y + 146;
-  if (f < A.result) {
-    pop(`GEN ${sg.gen}`, GX, GY, 80, sg.id === 'final' ? PAL.g2 : PAL.white, sg.id === 'hook' ? 9 : k, 'left');
-    const bonk = ep.events.find(e => e.type === 'bonk');
-    if (sg.id === 'hook' && (!bonk || f < bonk.f)) outlined(T.hookSub, GX + 4, GY + 52, 40, PAL.t3, 'left');
-  }
+  if (f < A.result && sg.id !== 'cta') pop(`GEN ${sg.gen}`, GX, R.y + 150, 80, sg.gen === FINAL_GEN ? PAL.g2 : PAL.white, sg.from === 0 ? 9 : k, 'left');
+  // 前の回の生物の名前 (コメントで決まった名前を発表)
+  if (T.prev && f >= A.m1 && f < A.almost) pop(T.prev, W - GX, R.y + 150, 40, PAL.t3, f - A.m1, 'right');
 
   // ─── 場面ごとの文字 ───
-  const SY = R.y + 250, SY2 = R.y + 318; // 空の部分
-  if (sg.id === 'hook') {
-    const bonk = ep.events.find(e => e.type === 'bonk');
-    if (bonk) pop(T.hookFail, W / 2, SY, 64, PAL.r2, f - bonk.f);
-  }
+  if (sg.id === 'hook' && BONK) pop(T.hookFail, W / 2, R.y + 272, 64, PAL.r2, f - Math.max(BONK.f, sg.from));
   if (sg.id === 'almost' && f >= A.timeUp) { // 惜しい!: 世界はすき間を見せたいので、文字は脳の窓の上に
-    const B = LAY.brain;
     X.fillStyle = PAL.ink; X.fillRect(0, B.y - 12, W, B.h + 24);
     X.fillStyle = PAL.r1; X.fillRect(0, B.y - 12, W, 6); X.fillRect(0, B.y + B.h + 6, W, 6);
-    pop(T.almost, W / 2, B.y + 140, 96, PAL.g2, f - A.timeUp);
-    pop(T.almostShort, W / 2, B.y + 232, 64, PAL.r2, f - A.timeUp - 8);
+    pop(T.almost, W / 2, B.y + 106, 96, PAL.g2, f - A.timeUp);
+    pop(T.almostShort, W / 2, B.y + 184, 64, PAL.r2, f - A.timeUp - 8);
   }
   // ゴール! (1小節) → 「だれも教えていない」(1小節)
-  if (sg.id === 'final' && f >= A.drop && f < A.goalSub) pop(T.goalBig, W / 2, R.y + 204, 128, PAL.g2, f - A.drop);
-  if (sg.id === 'final' && f >= A.goalSub && f < A.result) pop(T.goalSub, W / 2, R.y + 236, 56, PAL.white, f - A.goalSub);
+  if (sg.id === 'final' && f >= A.drop && f < A.goalSub) pop(T.goalBig, W / 2, R.y + 232, 128, PAL.g2, f - A.drop);
+  if (sg.id === 'final' && f >= A.goalSub && f < A.result) pop(T.goalSub, W / 2, R.y + 200, 56, PAL.white, f - A.goalSub);
   if (f >= A.result && f < A.cta) results(f - A.result);
   if (sg.id === 'cta') cta(f - A.cta);
 
@@ -322,37 +371,33 @@ function hud(f, sg, dist) {
   X.fillStyle = PAL.n3; X.fillRect(0, R.y + 54, W, 3);
   const done = f >= A.drop && f < A.cta;
   const q = clamp(dist * 100 / GOAL, 0, 1);
-  // 数字
   const col = done ? PAL.g2 : sg.id === 'almost' && f >= A.timeUp ? PAL.r2 : PAL.white;
   text(`${sg.id === 'cta' ? '<< ' : ''}${dist.toFixed(1)} m`, 204, y + 32, 32, sg.id === 'cta' ? PAL.n6 : col, 'right');
-  // バー
   X.fillStyle = PAL.n2; X.fillRect(x0, y + 6, x1 - x0, 18);
   X.fillStyle = done ? PAL.g2 : PAL.t3; X.fillRect(x0, y + 6, Math.round((x1 - x0) * q / 6) * 6, 18);
   if (!done) { X.fillStyle = PAL.t4; X.fillRect(x0, y + 6, Math.round((x1 - x0) * q / 6) * 6, 6); }
   for (let gx = x0 + 108; gx < x1; gx += 108) { X.fillStyle = PAL.ink; X.fillRect(gx, y + 6, 6, 18); } // 目盛 (1/6 ごと)
   const best = bestBefore(sg);
   if (best > 0 && sg.id !== 'cta' && !done) { const bx = x0 + Math.round((x1 - x0) * clamp(best * 100 / GOAL, 0, 1) / 6) * 6; X.fillStyle = PAL.white; X.fillRect(bx - 3, y, 6, 30); }
-  // 旗
   X.fillStyle = PAL.white; X.fillRect(x1 + 18, y - 3, 6, 36);
   for (let r = 0; r < 4; r++) { X.fillStyle = PAL.g2; X.fillRect(x1 + 24, y - 3 + r * 6, 30 - Math.abs(r - 1.5) * 12, 6); }
   text(T.goal, x1 + 66, y + 32, 32, PAL.g2, 'left');
 }
 
-// 結果 (小節7): 第0世代 → 最終世代。数字は16分ごとに増えて、3拍目で止まる
+// 結果 (小節7): 世界と脳の所をまるごと結果の画面に (脳が帯状に切れて見えないように)。
+// 数字は16分ごとに増えて、3拍目で止まる
 function results(k) {
-  const R0 = LAY.world.y, R1 = LAY.brain.y + LAY.brain.h;
-  X.fillStyle = CHK_INK; X.fillRect(0, R0, W, R1 - R0 + 12);
-  const top = 600, bot = 1140;
+  const top = LAY.world.y + 57, bot = LAY.brain.y + LAY.brain.h + 24;
   X.fillStyle = PAL.ink; X.fillRect(0, top, W, bot - top);
-  X.fillStyle = PAL.n4; X.fillRect(0, top, W, 6); X.fillRect(0, bot - 6, W, 6);
-  const [ga, gb, da, db, tries] = T.result, fin = ep.stats.final;
-  pop(ga, 270, 712, 64, PAL.n6, k, 'center', text);
-  pop('→', 540, 712, 64, PAL.n6, k, 'center', text);
-  pop(gb, 810, 712, 64, PAL.g2, k, 'center', text);
-  pop(da, 270, 860, 96, PAL.r2, k - 2, 'center', text);
+  X.fillStyle = PAL.n4; X.fillRect(0, bot - 6, W, 6);
+  const [ga, gb, da, , tries] = T.result, fin = ep.stats.final;
+  pop(ga, 270, 650, 64, PAL.n6, k, 'center', text);
+  pop('→', 540, 650, 64, PAL.n6, k, 'center', text);
+  pop(gb, 810, 650, 64, PAL.g2, k, 'center', text);
+  pop(da, 270, 820, 112, PAL.r2, k - 2, 'center', text);
   const c = easeOut(clamp(k / (2 * BEAT), 0, 1)) * fin;
-  if (k >= 2) text(`${(k >= 2 * BEAT ? fin : c).toFixed(1)} m`, 810, 860, 96, k >= 2 * BEAT ? PAL.g2 : PAL.white);
-  pop(tries, 540, 1040, 64, PAL.t3, k - 2 * BEAT, 'center', text);
+  if (k >= 2) text(`${(k >= 2 * BEAT ? fin : c).toFixed(1)} m`, 810, 820, 112, k >= 2 * BEAT ? PAL.g2 : PAL.white);
+  pop(tries, 540, 1010, 64, PAL.t3, k - 2 * BEAT, 'center', text);
 }
 
 // 呼びかけ (小節8): 巻き戻しを見せながら
@@ -360,28 +405,27 @@ function cta(k) {
   const R = LAY.world, B = LAY.brain;
   X.fillStyle = CHK_INK; X.fillRect(0, R.y + 57, W, R.h - 57); X.fillRect(0, B.y - 12, W, B.h + 24);
   const [a, b, c] = T.cta;
-  pop(a, W / 2, R.y + 236, 128, PAL.g2, k);
-  pop(b, W / 2, R.y + 318, 48, PAL.white, k - 4);
-  X.fillStyle = PAL.ink; if (k >= BEAT) X.fillRect(0, B.y - 12, W, B.h + 24);
-  pop(c, W / 2, B.y + 170, 96, PAL.white, k - BEAT);
+  pop(a, W / 2, R.y + 252, 128, PAL.g2, k);
+  pop(b, W / 2, R.y + 334, 48, PAL.white, k - 4);
+  if (k >= BEAT) { X.fillStyle = PAL.ink; X.fillRect(0, B.y - 12, W, B.h + 24); }
+  pop(c, W / 2, B.y + 150, 96, PAL.white, k - BEAT);
 }
 
 function drawGuides() {
   const G = LAY.safe;
-  X.fillStyle = 'rgba(255,82,104,0.28)';
-  X.fillRect(0, 0, W, G.top); X.fillRect(0, G.bottom, W, H - G.bottom); X.fillRect(G.right, 950, W - G.right, G.bottom - 950);
+  X.fillStyle = 'rgba(255,82,104,0.25)';
+  X.fillRect(0, 0, W, G.top); X.fillRect(0, G.bottom, W, H - G.bottom); X.fillRect(0, G.top, G.side, G.bottom - G.top); X.fillRect(W - G.side, G.top, G.side, G.bottom - G.top);
   X.font = `32px ${FONT}`; X.textAlign = 'left'; X.fillStyle = '#ff98a5';
-  X.fillText('IG UI (top)', 24, 60); X.fillText('IG caption & buttons', 24, G.bottom + 50); X.fillText('btns', G.right + 8, 990);
+  X.fillText('text safe zone: top 14% / bottom 35% / sides 6%', 24, 60); X.fillText('IG caption & buttons', 24, G.bottom + 50);
 }
 
-// ─── 表紙: 第0世代 (倒れた姿) と 最終世代 (走る姿) を上下に。4:5 / 3:4 に切り取られても残る位置 ───
+// ─── 表紙: 第0世代 (倒れる途中) と 最終世代 (走る姿) を上下に。4:5 / 3:4 に切り取られても残る位置 ───
 async function renderCover() {
   const hook = seg('hook'), fin = seg('final');
   const shots = [];
   {
-    const tr = trackOf(hook.genome);
-    const bonk = ep.events.find(e => e.type === 'bonk');
-    const tI = bonk ? mapAt(hook.map, bonk.f).t : 1;
+    const tr = trackOf('f0');
+    const tI = BONK ? mapAt(hook.map, BONK.f).t : 1;
     shots.push({ tr, u: Math.round(tI * 0.62 * FPS), label: ep.cover.a, sub: ep.cover.aSub, col: PAL.r2 }); // 倒れる途中
   }
   {
@@ -392,31 +436,29 @@ async function renderCover() {
     const cut = hs.map(h => h[1]).sort((a, b) => a - b)[Math.floor(hs.length * 0.8)];
     shots.push({ tr, u: hs.find(h => h[1] >= cut)[0], label: ep.cover.b, sub: ep.cover.bSub, col: PAL.g2 });
   }
-  X.imageSmoothingEnabled = false;
-  X.fillStyle = PAL.n1; X.fillRect(0, 0, W, H);
-  X.fillStyle = gridPat; X.fillRect(0, 0, W, H);
+  background();
   text(T.title, W / 2, 392, 80, PAL.g2);
   const ys = [452, 1012];
   for (let j = 0; j < 2; j++) {
     const sh = shots[j], P = sh.tr.pose(sh.u);
     let x0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (let q = 0; q < P.n; q++) { x0 = Math.min(x0, P.x[q]); x1 = Math.max(x1, P.x[q]); y1 = Math.max(y1, P.y[q]); }
-    sh.zoom = clamp(Math.min(360 * 0.5 / Math.max(30, x1 - x0), (140 * 0.72 - 30) / Math.max(20, y1)), 0.3, 3); // 上30pxは文字
-    const cam = new Camera(); cam.zoom = sh.zoom; cam.x = (x0 + x1) / 2; cam.y = groundY(env.terrain, cam.x) + 140 * (0.72 - 0.5) / sh.zoom;
+    const zoom = clamp(Math.min(360 * 0.5 / Math.max(30, x1 - x0), (140 * 0.72 - 30) / Math.max(20, y1)), 0.3, 3); // 上30pxは文字
+    const cam = new Camera(); cam.zoom = zoom; cam.x = (x0 + x1) / 2; cam.y = groundY(env.terrain, cam.x) + 140 * (0.72 - 0.5) / zoom;
     const { ctx, w, h } = fitCanvas(coverCv, { px: 2 });
     drawWorld(ctx, cam, w, h, env.terrain, { startX: sh.tr.nose0 });
     drawGoal(ctx, cam, w, h, false);
-    ctx.save(); cam.apply(ctx, w, h); drawCreature(ctx, P, {}); ctx.restore();
+    ctx.save(); cam.apply(ctx, w, h); drawCreature(ctx, P, { tint: TINT }); ctx.restore();
     await new Promise(r => setTimeout(r, 0));
     const y = ys[j];
     X.fillStyle = PAL.ink; X.fillRect(0, y - 12, W, 444);
     X.drawImage(coverCv, 0, y, 1080, 420);
     X.fillStyle = PAL.n4; X.fillRect(0, y - 6, W, 6); X.fillRect(0, y + 420, W, 6);
-    outlined(sh.label, 48, y + 96, 96, sh.col, 'left');
-    outlined(sh.sub, W - 48, y + 96, 80, PAL.white, 'right');
+    outlined(sh.label, GX, y + 96, 96, sh.col, 'left');
+    outlined(sh.sub, W - GX, y + 96, 80, PAL.white, 'right');
   }
   text('↓', W / 2, 980, 64, PAL.n6);
-  text(`CREATURE ${ep.tag}`, W / 2, 1550, 48, PAL.n6);
+  text(`CREATURE ${ep.tag}${ep.creature && ep.creature.name ? ` · ${ep.creature.name}` : ''}`, W / 2, 1550, 48, TINT_COL);
   if (guides && !CAPTURE) {
     X.strokeStyle = '#ff5268'; X.lineWidth = 6;
     X.strokeRect(3, (H - 1350) / 2, W - 6, 1350); X.strokeRect(3, (H - 1440) / 2, W - 6, 1440);
@@ -426,7 +468,7 @@ async function renderCover() {
 }
 
 // ─── 外から使う (capture.mjs) ───
-await document.fonts.load(`64px ${FONT}`, ' !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]_abcdefghijklmnopqrstuvwxyz{|}~→↑↓·×▮—◀');
+await document.fonts.load(`64px ${FONT}`, ' !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]_abcdefghijklmnopqrstuvwxyz{|}~→↑↓·×▮—');
 let busy = false;
 window.REEL = {
   fps: VFPS, width: W, height: H, total: TOTAL, episode: ep, canvas: frame,

@@ -44,7 +44,7 @@ function prep(c) {
 
 /**
  * 生物を描く (ctx は Camera.apply 済み)
- * o: { ghost: hue|null, selEdge, selNode, eyes, glowNodes:Set, glowEdges:Set }
+ * o: { ghost: hue|null, selEdge, selNode, eyes, glowNodes:Set, glowEdges:Set, tint: hue|null }
  *   ghost … 影 (1ドットの線と点の骨組み。筋肉の動きと目は描かない。主役を隠さず、形は見分けられるように)
  */
 export function drawCreature(ctx, c, o = {}) {
@@ -84,16 +84,17 @@ export function drawCreature(ctx, c, o = {}) {
   }
   ctx.stroke();
 
-  // 節点と目はドット単位で (きっちりした丸に)
+  // 節点と目はドット単位で (きっちりした丸に)。o.tint (色相) があれば節点の輪をその色に (動画で生物ごとの色)
   const R = Math.max(1, Math.round(NODE_R * sc));
+  const ring = o.tint != null ? hueColor(o.tint, 2) : PAL.n7, core = o.tint != null ? hueColor(o.tint, 0) : PAL.n2;
   dotSpace(ctx);
   for (let i = 0; i < c.n; i++) {
     const [X, Y] = toDot(ctx, x[i], y[i], m);
     if (ghost) { ctx.fillStyle = gDot; ctx.fillRect(Math.round(X) - 1, Math.round(Y) - 1, 2, 2); continue; }
     const glow = o.selNode === i || (o.glowNodes && o.glowNodes.has(i));
     if (glow) pixelDisc(ctx, X, Y, R + 2, PAL.white);
-    pixelDisc(ctx, X, Y, R, c.contact[i] ? PAL.g2 : PAL.n7);
-    if (R >= 2) pixelDisc(ctx, X, Y, R - 1, c.contact[i] ? PAL.g0 : PAL.n2);
+    pixelDisc(ctx, X, Y, R, c.contact[i] ? PAL.g2 : ring);
+    if (R >= 2) pixelDisc(ctx, X, Y, R - 1, c.contact[i] ? PAL.g0 : core);
   }
 
   // 目 — 動く方向を見る
