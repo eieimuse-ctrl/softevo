@@ -1,0 +1,433 @@
+{
+ "format": "softevo-reel/2",
+ "template": "drop16",
+ "hook": "fail",
+ "creature": {
+  "name": null,
+  "color": "red"
+ },
+ "episode": 2,
+ "tag": "#002",
+ "seed": 2707603828,
+ "bodySeed": 1937814308,
+ "generations": 300,
+ "fps": 30,
+ "bpm": 120,
+ "beat": 15,
+ "frames": 480,
+ "at": {
+  "hook": 0,
+  "brainOn": 30,
+  "m1": 60,
+  "m2": 90,
+  "almost": 120,
+  "timeUp": 150,
+  "final": 180,
+  "slow": 225,
+  "drop": 240,
+  "goalSub": 300,
+  "result": 360,
+  "cta": 420,
+  "end": 480
+ },
+ "settings": {
+  "population": 48,
+  "evalSeconds": 12,
+  "hidden": 12,
+  "hidden2": 0,
+  "mutationRate": 0.08,
+  "mutationSize": 0.35,
+  "terrain": "flat",
+  "objective": "distance",
+  "gravity": 1,
+  "friction": 0.85
+ },
+ "blueprint": {
+  "nodes": [
+   {
+    "x": -40,
+    "y": 35
+   },
+   {
+    "x": -15,
+    "y": 25
+   },
+   {
+    "x": 15,
+    "y": 25
+   },
+   {
+    "x": 40,
+    "y": 35
+   },
+   {
+    "x": -25,
+    "y": 15
+   },
+   {
+    "x": 0,
+    "y": 15
+   },
+   {
+    "x": 30,
+    "y": 15
+   },
+   {
+    "x": -45,
+    "y": 0
+   },
+   {
+    "x": -10,
+    "y": 0
+   },
+   {
+    "x": 45,
+    "y": 0
+   },
+   {
+    "x": 60,
+    "y": 50
+   }
+  ],
+  "edges": [
+   {
+    "a": 0,
+    "b": 1,
+    "type": "bone"
+   },
+   {
+    "a": 1,
+    "b": 2,
+    "type": "bone"
+   },
+   {
+    "a": 2,
+    "b": 3,
+    "type": "bone"
+   },
+   {
+    "a": 0,
+    "b": 4,
+    "type": "bone"
+   },
+   {
+    "a": 1,
+    "b": 4,
+    "type": "bone"
+   },
+   {
+    "a": 1,
+    "b": 5,
+    "type": "bone"
+   },
+   {
+    "a": 2,
+    "b": 5,
+    "type": "bone"
+   },
+   {
+    "a": 4,
+    "b": 5,
+    "type": "bone"
+   },
+   {
+    "a": 2,
+    "b": 6,
+    "type": "bone"
+   },
+   {
+    "a": 3,
+    "b": 6,
+    "type": "bone"
+   },
+   {
+    "a": 5,
+    "b": 6,
+    "type": "muscle"
+   },
+   {
+    "a": 0,
+    "b": 2,
+    "type": "muscle"
+   },
+   {
+    "a": 1,
+    "b": 3,
+    "type": "muscle"
+   },
+   {
+    "a": 0,
+    "b": 7,
+    "type": "bone"
+   },
+   {
+    "a": 1,
+    "b": 7,
+    "type": "muscle"
+   },
+   {
+    "a": 1,
+    "b": 8,
+    "type": "bone"
+   },
+   {
+    "a": 0,
+    "b": 8,
+    "type": "muscle"
+   },
+   {
+    "a": 3,
+    "b": 9,
+    "type": "bone"
+   },
+   {
+    "a": 2,
+    "b": 9,
+    "type": "muscle"
+   },
+   {
+    "a": 3,
+    "b": 10,
+    "type": "bone"
+   },
+   {
+    "a": 2,
+    "b": 10,
+    "type": "bone"
+   }
+  ]
+ },
+ "goal": 8,
+ "stride": {
+  "period": 0.458,
+  "drop": 9.017,
+  "victorySpeed": 0.917,
+  "approachSpeed": 1.834
+ },
+ "stats": {
+  "g0": -0.002,
+  "final": 10.819,
+  "finalGen": 120,
+  "almostGen": 38,
+  "gapCm": 2,
+  "cross": 8.95,
+  "tries": 5808,
+  "failKind": "fall",
+  "failIndex": 13,
+  "nodes": 11,
+  "muscles": 6,
+  "neurons": 41
+ },
+ "genomes": {
+  "18": "zt58PXK/RD/c82C/93wVPYpfxb7YCWa+PzqnvXFulr2k0d++WjtvPvEFBb/zub+/esUNvnt00b5Fi8Y97U2LP3i9Dj9Eyl++9MERvZvuDLwsSNO+UROEPmd2Dj7fSRO+uTGmPpliED/QhDw/DS8qPnlT7z69fMo+hrsXPnMOrr5rUTa/B2AJv5vQ2j5Ts5s/oiMSvypeLj5Ys6S9x56PvhopKD9LfeA+Sf8DP1ZfQ78D7su+dZcbv5gcIr78g72+V/vjPrjBbb6Jexs/jwslvusJoL4raB67qlEzv8E7Ab9+c4k+7UtBPh/3qr66EBM+t5B5vq2y8j4pT869M8k1PFKmSr+57BY/5Ik6vmKy2z4ypn6+n4sBvofmVD14akI/HshbP5VzGT9BXDc/gkOiPw0ULb9tlK89D/A0P4maxz7yKJs/0hwEv7jznr5Srry+vad1PRfHGTx69Nk+tzeGPxY8zj4Le/U8Ri0MQC9RAb9ne9k+rCX4vbE3hD/IOU6/jvwpv4RNzr2P4TO9LQFVP2blUT4W3Qi/gqcRvyOM7r2LXZQ/k2/nPrgRQz6vix+/nNnlvr757z19lPI+huo1v2PqU7/ExzU+d80jv1UuCj2nmEk816Bfvb9B8761Or++rnryPAUG9T56xKE94ItevoYEBD7OwOC+qCgDv7Hqbr9IkuW+tJTtPrspTj8je+29BBHKPu+fO7+Nrrg/siB0P8zBcD2FD/U+fmXqPmfhDL7bCQM+U/d+P0bOYr2zMEq+HhrrPnG3tz3JZz6+RKdjvhYcpj7eXS4+DZcSPnCe5r6xO2I/9pDSPcEpJr0uwpO/d06EPmamir6LGmO/Hv6Qv4wIqT1rWQk9WsYFvyHxgr+vOGy+17+JPowU+r+1Mce87tWXvsHzO79kTkM/7+JBP+Fs4z7fDsW+ShIEvwdhWz5tdL0+akkgv9muUz0l6H8+cNtWv4Lp/T7d+fe+Dellvm02RD8vXfM+CS74vneeMb6r2HO+26aDv/f3rT1arF4/tA6sPS4Ivz4bdO08nCYjveL4Jb5FlHM+HIcCP86iZL5CTOS8924WvbZ9dz6aTSm+2yq6PXenoL7tgsU+Vfe2vVJYgb4CtFQ/ikOhPWtmWT9ljJM9pw3MvjFQ5r74AG0/OsE0vib4sr7k6QC+cpwwvrForr0pcgk/eGYJv9nah74pRbU+/Q1RPouhVD9IshW/I9KlPtlbBr+yqdm/gNc4v2KaZD/5pJs+Oq1PvrVUc70NBcm+R9rLPmEQwL9f09U8359uPycF5D5+2ty85DGIP3SKL7/WNxA+fA/9PqotYr96+Cw9vO2TP0ACBb/8D7M+cDrJvvUQTr9YD0A+XpFOvmovDz9iksi+Vu6WvbL2QT+EvoW9Tv2FPnxVTL+/jx89iDXQPL8AdL531Kw+Pg5iP6znAT1u/PA/UF08P/Cp0D7V7/W7zY4Lv6f/nT4CdOQ88FLEvcmdwr7/DH8+qNkNPY0KcT4985q+344LP5xBebx0Dt09zwjtPmTn2b3FfKo9Klfzvq16zj2VHCQ/AlzQPsIap74usgi/8aK/PaTABr6GLR6/cg1AvwSqOj4wmBC/u+VivdH/Nb9FoQI/d1awPqOsgr7mJE2/j7v5vq8HKb9kLBa+0vyzPsIne77IWOs+fmiHPgNTsz4IWGK/BJOfP/0fZb7/iTm/Co8bvq/KhL5sEvs+ze6Bvc02yL+8Iww/z39pPuBaJj9YQPE+7ao5v8B9W70Yg4++pIczPkIeaT2mggA/rzOUv+0RT76BBns/lfFEv/mKlr74K2Q/gCKfPgw+rj5MPs4+zXGRP1uCKL7/7lg8VYt6PRpj6b6Omcu+LowEv+pvhb/dEZE9mw2Qv9nrl74D116/mI6CPpgyAD4Zqn8/ieO8vqCLtb2H8Ry/EfxPvhdXiz1KFte+ynnGvoNdDb+WIHC+8B7EPg==",
+  "23": "zt58PXK/RD9+q/K+7MUjv0xpqjvXVo+/PbERv+Yubz4eHww+aWcAPj4iqr4MPMu+iuGvPiUJv75Fi8Y9+lmWvSPhyT7wCwQ+9MERvVqVmj2/JCa9UROEPp5yOj7bZSo+u7nPPm10PD8aIbY+wXvcvdoZbD29fMo+hrsXPr+OTz+kbZS9uuEHv33EAj+bmJU+GussvzvwqD5Ys6S9j2uovXYVRD5LfeA+aHFzvrUpKL8Uopq99U3hvjKp7TztYwC/f/79PrjBbb7+lxk/sZrtvL4/Hb8raB67REdVvze/iLx+c4k+7UtBPq3Eob66EBM+9E+rPK2y8j5qZgU/M8k1PEPzXr/o34o85Ik6vmKy2z6ilou+xi82vm7Eojp4akI/HshbP1qZVT9BXDc/L4l9P0sn2L4EgyO9kXi9PiWRqT7yKJs/3MDDvkgm4rxSrry+7v9vPtQtB7969Nk+9oV2P/ZZFT2SBx2/qS3tPzc5Pr+9zbQ+rCX4vd7Agj3MFyi+hNeuPZ44ir+P4TO9BIeIP34fYz8W3Qi/Bl7ZviOM7r04RV491K3gPbgRQz6vix+/nNnlvsX7lT2pQ3Q9NvtPv6BSA7/ExzU+FMFlv1UuCj0ah4M+16Bfve6Znb6Dnoi9hsa8v9B/ID5eI7o8sESKv5Psmr7OwOC+iesZP7+CAz9z4PO+UMORv6GDLT8je+290rznvhn/qL1UVPW+7rGJP5igfj45U+Q+SmRgPvQB1j3bCQM+ZfKKP47yvT4Zdau+znm0PgzswD7JZz6+4hxKv9HUuj4QBBg+DZcSPlSZkb1tVBM/4w0Bvx5IQT6b7Bu/d06EPv2jiT63G8G+fK1uv712kD5rWQk9rja8viHxgr+/ODY+3sKJP8PKi7+1Mce87tWXvsHzO7/oD1U/55savuFs4z7fDsW+ShIEvwdhWz4c88I+akkgvws8nr4l6H8+b/0jPxVfoj4Eqge/MjhHvxYHSj+BdZu+w0Mcv8QrcL7Lgmo+ULP6PqtDmr1amhM+tA6sPXw//L5qUkU/djzmvmdNlr97zzI+/8tmP53JpT4Tg0I9WQYtv7Z9dz5l1eW+BpW0vXenoL4sByg+Vfe2vQ+tC7/AT1w/PyH2vW+FMD9ljJM9pw3MvjFQ5r6nOIM/OsE0vmB2tz3GKyC+j0M/voPPCb9r9Ug/25Fmv/SXET6WwWI+SbbQvhk1uj5hISE+uUraPdlbBr/4KIW/pjayvycQvj6jo7M9IfhLvusH7766Sc6+yhF8PvoM6b8agIs+gfK4PviZa75+v6o+QWRXP8EEmD03pZO/RikYPwJyz756+Cw9KaFqvpoHIz//Stq+R9lHvvUQTr9YD0A+pXbmvkJ6UD65ZkC+haNRv7L2QT+EvoW9Tv2FPh/Ler6/jx898N1TP/Oi/zt26qY+Qf+wvxs4Aj+ACm8/UF08PzqygL02EZS+U/Q6Paf/nT4CdOQ8uG2IPzli4r1iSPA9qNkNPY0KcT4985q+7QgZv5xBebx0Dt09aPGHPBe+sz7FfKo9DO1Xv616zj3/QfM9OGMcPycEiD4usgi/8aK/PZWe8j0geOG+yaITvwSqOj4KXn++u+VivdH/Nb9FoQI/d1awPsLX7L4Aq8O+j7v5vpaxFb/ScJg+x6lZPmHT3rza2Og+PrUlPvVsCT9ocoa/BJOfP/TZLL3/iTm/Co8bvkTqF75NpSg/j5YRPloZk7/f3sY+N5ZwvuBaJj9YQPE+Pqywv3fUWL60x5I+0oe1Pm42v76mggA/jsYlv+0RT74qH10+lfFEv/mKlr7/4kw/W+rUPtUwRz75Vi0/pr2vP5Aper4oDAm/VYt6PRpj6b7pW3E9LowEv+pvhb/dEZE9Iv4SwANiRL+vdnC/5a6VPv8EHz5qxwg/qdUPv0qvXj052b+934qmvvMNtj6JcFe+VFMpvyc8l74bHyO9zls4Pw==",
+  "38": "wFLQPvY1sD+qKJa9QmyZv0xpqjvXVo+/PbERv9fYrL2ZcGY+aWcAPjrtAr/4fQE9ww1lPoQPQ71Fi8Y9+lmWvb3qLb7wCwQ+9MERvVqVmj2/JCa9Ry8TvhbAJT+23hk/rLRLP1mEhj4aIbY+QusJv+SVLD+QKow/hrsXPhOrnD9M4q++uuEHv33EAj+bmJU+XsXRvjvwqD5Ys6S9j2uovXYVRD7NSUw/uMwqPqAkwb7iDL2+9U3hviuHJ78Lnbm/4mSlPrjBbb75fOc+yk9nu0WKP78raB67541nvze/iLyGhs0+7UtBPq3Eob6RSkA/9E+rPMyF0z75QSC/M8k1POJYpL/zyhq+5Ik6vmKy2z7dqoW+xi82vm7Eojqnajs/c3luPy5WLz/QOKg/L4l9P0sn2L4EgyO93VaCPcdUKT/yKJs/cA6Ev6lQSz6WvG2+7v9vPlftQr5+RDg+9oV2P8JxTD6SBx2/qS3tP4qkbr/NJcc+M2Wxvt7Agj0oVqW+8Z2FPik6PL/EjAc/qOjBP34fYz8Lj0+/pirZvjvDH7++SUI/1K3gPbgRQz7SFEG/nNnlvj306T2fZMU+Lu8qv01PtL7ExzU+kCEuv6IR4T5quRc/Beh4Pu6Znb5jF4W9Hjrhvw6WuD4jkdU+/Dquv5Psmr64s7+98Jw4P/PwAr3LaTo9UMORv/oMPD4je+29Jb0Xvxn/qL1Czqy97rGJP/0ETD4WRy8/Kn7AvQ0/8r2q6hG+Rj2qv/Z9zDxG4SM+HIlyPvGPyz7d3Bo/3gg0v9HUuj4QBBg+DZcSPlSZkb3uva+9Taxgv6qWLD22ITW/rW4bPrLxaT7wlnK/rc6sv2p/Br9OEYI9jDKMviHxgr/Evu4+RxRCP8V4rr82Lvc+d7eZvsHzO7/WB8I/XvGMvuu0rD9SrOS+4JKjvwdhWz4gXUC+akkgv9muUz0naDc+vCuNv+iUAD9sdem+va3CvzLigD+BdZu+DLfevonr1r7Lgmo+gLvnv6tDmr3zHUm8tA6sPQgmBz7UkzQ/tmsTP2w4tr/YGOi+88EZP53JpT5CTOS8N9xfv7Z9dz7Zcpe+BpW0vUkGur+a2LG+58+nvnCzrr7AT1w/juElu3w4Tz/1poA/s2sXP5aSgb+nOIM/ZXbvvsK/nL/HAQc+0ZChvpS+Ir/CMIM/Sm+Av9nah77ertI+mbphPuOi8D7kSAG/I9KlPspFz75EKoy/pjayv1dYHT5g+5e+AnWFPSZVC7+6Sc6+o1P6Pm8xib8H7aI+1Pp3vrN0gL9+v6o+QWRXPyfFnT0s2qa/wkeYPgJyz76h1Ho+Uo9Avhnj/D7kCAQ+p0X+PPUQTr/PrEE/pXbmvlBQDD+j7ti9haNRv22thD9aKwk+Tv2FPh/Ler6BGsQ9mIBRP/Oi/zt26qY+WH5RPxs4Aj+IQoc/UF08P+7xCT82EZS+U/Q6PeGNqT5IWzU+nWGQPgXDq747IAw/qNkNPY0KcT5ddZ++7QgZv3RS7D50Dt09thJnPYLg6z61Tca/pOG+vq16zj0e8yc/RggsP3XUxz4usgi/8aK/PfTkgj4+7lG/SUp7v1P0Fz8KXn++wlkPvxwAOb9KybY9cW3IPie+gr8G3Au/lcmOvrjopr6mi5M+4CNHP2HT3ryGUjI/iliPvpibjD+zGzq/BJOfP9nOm77/iTm/xDKlvkTqF75NpSg/j5YRPloZk7/f3sY+J2QkPkQ6fT9YQPE+K7Dvv8WUKL+0x5I+0oe1PgO8Wr9cu8w+jsYlv0xgOj8qH10+lfFEv6hfmr4QVwI/IppjPtUwRz75Vi0/wbS2P5Aper7/7lg8QLz9PZtfor8LHQY/LowEvyou977dEZE92GBJwB3xWL+vdnC/il5KP58hWj9KrOS9tIWFv8yD9j6B6ae+34qmvmDheD6JcFe+m86cvyc8l77lhTS+zls4Pw==",
+  "120": "OpkAv60Bdj+qKJa95RO0v5dNTj9JHXG/UH/QvkYfA7+EvPY+PCHJPb1FXb2RqKG8ww1lPg88GL4gdwe+DrWQPlm+AT+E0VI+977uPnvTMb7dxzI/Ry8TvgILdT+2HVU/fGFYP1mEhj6G0fA9R+TpvoFXWz8FWZU/hrsXPu7Ibz9aAUY8C841vyIxjj+bmJU+kBIpPjvwqD7ROWY9rY0cP39HqD6HD5E/uMwqPp7eP75IBBy/KrVhv4lSRr8Lnbm/UtyKP9jdVT6dwOY+jPf9PUwRL78raB67bfYOwLM8i7+Ghs0+l120vq3Eob4hBn4/9E+rPK3W4D75QSC/UW+FPiSt6r8Tlso//mZLPWKy2z7dqoW+HaeAvB83tj4ou3o/a7qaP69LOz9/4/Y//ofJP6PrZD8bQ8m+H8QFPYGNQr70DJE/yQsPv/4SoL4QgWo8rAjlPK1MM78lUdo9sFhkP40VAz/E4lK/pRMbQOVfkL/NJcc+iuYNv8q2Ez6qnWG/pU3cPpOqYL+PpXY8TWiEPzH1jD4Lj0+/pirZvt8nBr/Z4Dg/YnG1PuWlNLzkP3O+nNnlvoEExD6mbbk/Lu8qvztQ676o+x2/ZTL8vvBw8z6umrM/Beh4PhXE/bt++UC/IB0LwPUujr5tWDy/N8F+vy3nbL+mUoU+MV1+v8dBqL5Si+S+dh2jv4yXmj+IvtA+DRLIvhTnxr5brYi9aiD3Pwyhtr9FA0Y/11CFvwfE2L+q6hG+FTPZv74w2j4Yc7+/rGIdP3gbhD8i0nc/QL0Rv4Tsuj99+WU+zebKPpDvtb5gn9I+842yv6qWLD0/Iui/VZR5vTdV+73wlnK/8Nbgv9UGfb9OEYI9KeldvxPx773Evu4+RxRCP/envb82Lvc+T9mnvg4XG7/9Du8/nCFvvuu0rD+Cmk+/iiyzv0XKUD0DMim/akkgv/oNy7+3J6O+vCuNv7uXXj8pqAW/OvHgvzLigD+BdZu+DLfevoZ8Bb+I1F+/yFoiwFijGr76EwO/tA6sPU84tj45Cog/jIMNPze+dr8kSge/WdckP84L+D41lv4+ZuElveklnD4WT4i+Prabvel5zL9aqbu+BtBPvzmoO74ULGw/bH5Nvz0pPj/1poA/gwFyvnYavr5w+X8/MwQXPtUfeb+nAQM/dITKPmWuLz7CMIM/DmOnv6RyEb6gkgg/A8KOPpZdfj+qaou/uZdAP05wL79EKoy/pT+2v7Khub0Rh829AnWFPa/DGL+le0y+ZGEVvVuDU79q7Ao/1Pp3viOGQb7ZMbk+QWRXPyKuTz8s2qa/TrpQPgJyz76h1Ho+BIX4PRnj/D6iVEs+p0X+PBZBjr/A33w/hl44vz5uyD0HMJg+RhpPvytu9D698t69uXbyPtubkD9dmya+MZ9mP4qtdT64JqQ/6se4PdRvEb+323A/UF08P/a9nD4tuaS+cb2hPkA7ND42VOg++9AlPxk6OL8QvaE/uzigPo0KcT4YaII8HlZBvx9TMj90Dt098WiDPudlMT4SQRTAC4Mdv616zj0e8yc/sBJrP5r0Sb4usgi/Sc1HPtJaRz/U63m/SUp7v1P0Fz+1/wi9/hLcvfWeU79d26C+PoK7vie+gr/rEkY9ukqNv2gBTD0ukiY9kfNaP1poQL6gG8U/knHWvpibjD9ZjWO/GymZP07rYb/fb2W/xDKlvgvXE7+ghBE/HRo1PqMAY7/f3sY+J2QkPnVikz/PfqU+u+b4vwmtoL9jeDI+0oe1PgO8Wr9/Anw/OVXXvlddlD++eQW+nFkIv1uUp759cQk/wayLvp4Kyz3biWK96k/nPwQfCj/f08m+3PLvPow9yL/qUN4+pAQmvSou975kMgk9655HwPMylb9d+Ga/il5KP8RQYz9i+O0+jNzBv03Q7z5XRwS/wwOyvt3Tdz/c/4m+dveUvyc8l77lhTS+zls4Pw==",
+  "f0": "sxoQvtXfUz6ZDNg+aLoKPhPjVD7qRmG+EKJ4vi0JCL7vwos++qUUvn0SIj7ihcm9U8pIPmmuCz40ADE+Mk9GPlM+Rr6B8wQ+m/+QPmohED/+0Ci+goS9PhppA74+Ma++B+ItPqNpIT4RAYk9eEqovkfoID8TCQG/MF+APj5leb7jR6E+6AUwPWCvc77Ibu0+s23HPSGYI73Y+VA+8AILP8KcAT2Vopg9i8QSPic0/D0RXmy+CHTtPLNJ/L1uTXQ+jxHcvrISoj5uK5M+mCSyPpWrhj4NTx69dSXrvRGHPz7jN8m9ZKbgPmD0MD5O1Ow+/WL5PU7Y0T2XJbY+VinzPWo+Uz6+sD++AziMPtaZ0T6HwT6+5MvWPtHz3rwBzf0+rLeEPrwjOb4Xs1E/RNvOPv1M072Y1d89IKXxPvKkQjtL1lE+Jll9PT9KTzywp/W+k7ijPEKy2D6WOwe/vVxuvRdVDr+YaxO/q/lcPlkQSj6qIFo91G0XPeupP77OQBm+Yo7FvqJhwr0YKsa8IHtxvgNArD6e+XW9dtFlvgl5Vr5z/XG+q+YGP7bAXr7NkFQ8Fxirvs70X76RHog+8+jwPej2xz63JoO8m95ovfIp5T6UuYI+no67PtdhKD8Sgsq7D+OQPZWISj4EI9m+Rc3SPStzA7+QWzS8d8pnPUah8z6vKFg8VTNqPoJXFj5aQ+W+Zg2RPokaGL82VYY9t8BfPsSOqT6eJWq+Xbpdvv/A5z4wvJg9f2NUPbn91T1mzyw9rbYTPhUu274ThRa/vIkuPvyFub057Ny+R0YoPsCVurwIWb8+MNg4vScsZr7W0oU+fInRPeGqsD7rRls+Tyx2Pdh26r5Q4c8+TJCPPjYld75D/kW+bzL0vcMh0L5YYfC9HwW0PT9nrj6Qq7w+dCWcvuQK8z1NcQC+uPEMPtKHcj6vkAA/Sm4HPzF6o73tkqO+Grc8PVXuzLwgdpQ9pxNBvpaxlDv+Wec+mwE0vjY6tj0O+ZO+fxHmPpajg73DBvs8KteZvtK8oD6WQfQ9KhWaPQP+qDxeRDW8d/5VPQ8P1LzBoZO+wTuZvpY8ubxUK569tsbevm0TVr7o8re+K3j4vRp1IT2qH/49CVASPsV4mr01gly8yeBKPYQrNb+ajCE9NJApvocBpb7wsQi+bxXKPVKELL3Z0dA+yAQwPrYscToQgK4+opM2PVP/xb5nppu+MH1XPzHKGLtPhKE9iK5ovbio+T7KfFK/HLinvZ5JHL5Z8LQ9+uEXvwb3qLygVcY+DYBzve73Xz2+Cdk9bxKoPoEZxr2KxaE+eeervSraPj6BDGU/WUymu/x1jj0M5zm+UgPbPhYtRz7/r+W+docrvjiTlL6N/Dm+2vbavX+pzj0v3JQ8hiEXPYS0l77PLYI+CNxQPVkcC785Xxg+t9ZbPmsDgb5q8o0+d2xpPsYEGz68/Hq+UTM0PbkvKT6vEXw+wtqVPr/MBj5x6eW+Q56HPlsNrr55mjY9f29svlUb2r20Po4+/CH8vFWV4L6EYP89V7SCvj/rLr4kcHC6xG5/PahcWT1nRvy+8sjdvuzugb2fETc+vtGIPRpt0b4+I9Y+xD5zv4/9XD0qb5U+73CTPpbCDz+wSOS+7Rcmv3Zfjr7C6KU+lOdbv0YI+D38IL0+WBmIvhYNbz8rxNO+yST2PaHlIT9WaEm+DbSiPsThnT7O2SI8TC2jPgP6Kz83Cf+9hobEvjP4JD6NdRW/3CCNPp5H0b5W1G4+XCvGPW/UEL9cxia/gHW3vkLQFT/AfgW+qes9PfP8BL1WvoC+YRYtPn8Hnb4c5IO+r54+vt+Gvr6hjKy+HVKjPp06Hr96SLc+xnLyPhQ5oz7VHhk+Rmcavlf2Dz97CCa+iok3vxGx/r2kbQ2+Z2lmPg5Wpj1QgDy9SauCvhuSFL4fhSw+S+HYvfL/rj0qyKu7KsN/Pw=="
+ },
+ "segments": [
+  {
+   "id": "hook",
+   "from": 0,
+   "to": 60,
+   "genome": "f0",
+   "gen": 0,
+   "map": [
+    [
+     0,
+     0
+    ],
+    [
+     15,
+     0.65
+    ],
+    [
+     60,
+     2.15
+    ]
+   ]
+  },
+  {
+   "id": "m1",
+   "from": 60,
+   "to": 90,
+   "genome": "18",
+   "gen": 18,
+   "map": [
+    [
+     60,
+     10.5
+    ],
+    [
+     90,
+     12
+    ]
+   ]
+  },
+  {
+   "id": "m2",
+   "from": 90,
+   "to": 120,
+   "genome": "23",
+   "gen": 23,
+   "map": [
+    [
+     90,
+     10.5
+    ],
+    [
+     120,
+     12
+    ]
+   ]
+  },
+  {
+   "id": "almost",
+   "from": 120,
+   "to": 180,
+   "genome": "38",
+   "gen": 38,
+   "map": [
+    [
+     120,
+     10.5
+    ],
+    [
+     150,
+     12
+    ],
+    [
+     180,
+     12
+    ]
+   ]
+  },
+  {
+   "id": "final",
+   "from": 180,
+   "to": 420,
+   "genome": "120",
+   "gen": 120,
+   "map": [
+    [
+     180,
+     6.116
+    ],
+    [
+     225,
+     8.867
+    ],
+    [
+     240,
+     9.017
+    ],
+    [
+     420,
+     14.519
+    ]
+   ]
+  },
+  {
+   "id": "cta",
+   "from": 420,
+   "to": 480,
+   "genome": "120",
+   "gen": 120,
+   "map": [
+    [
+     420,
+     14.519
+    ],
+    [
+     474,
+     0,
+     "inOut"
+    ],
+    [
+     480,
+     0
+    ]
+   ],
+   "morphTo": "f0"
+  }
+ ],
+ "events": [
+  {
+   "f": 15,
+   "type": "bonk"
+  },
+  {
+   "f": 60,
+   "type": "cut"
+  },
+  {
+   "f": 90,
+   "type": "cut"
+  },
+  {
+   "f": 120,
+   "type": "cut"
+  },
+  {
+   "f": 180,
+   "type": "cut"
+  },
+  {
+   "f": 150,
+   "type": "fail"
+  },
+  {
+   "f": 240,
+   "type": "goal"
+  },
+  {
+   "f": 360,
+   "type": "count"
+  },
+  {
+   "f": 420,
+   "type": "rewind"
+  }
+ ],
+ "texts": {
+  "title": "AI LEARNS TO WALK",
+  "goal": "8 m",
+  "hookSub": "random brain",
+  "hookFail": "CAN'T EVEN STAND",
+  "compareMid": "120 generations later",
+  "prev": null,
+  "timeUp": "TIME!",
+  "almost": "SO CLOSE...",
+  "almostShort": "2 cm short",
+  "goalBig": "GOAL!",
+  "goalSub": "nobody taught it how",
+  "result": [
+   "GEN 0",
+   "GEN 120",
+   "0.0 m",
+   "10.8 m",
+   "5,808 tries"
+  ],
+  "cta": [
+   "FOLLOW",
+   "for the next creature",
+   "Name it ↓"
+  ]
+ },
+ "cover": {
+  "top": "AI LEARNS TO WALK",
+  "a": "GEN 0",
+  "b": "GEN 120",
+  "aSub": "0.0 m",
+  "bSub": "10.8 m"
+ },
+ "caption": "Gen 0 couldn't even stand.\nGen 38 missed the 8 m flag by 2 cm.\nGen 120 made it: 10.8 m in 12 s. 🧬\n\nRandom body, random brain. Nobody taught it how — just 5,808 tries of evolution.\n\n👇 Name this creature\n\n#ai #evolution #neuralnetwork #machinelearning #simulation #pixelart",
+ "hashtags": [
+  "#ai",
+  "#evolution",
+  "#neuralnetwork",
+  "#machinelearning",
+  "#simulation",
+  "#pixelart"
+ ]
+}

@@ -51,6 +51,7 @@ function rng32(seed) {
   let a = seed >>> 0;
   return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const settings = { ...DEFAULT_SETTINGS };
 const env = { terrain: settings.terrain, objective: settings.objective, gravity: settings.gravity, friction: settings.friction, evalSeconds: settings.evalSeconds };
 const EVAL = settings.evalSeconds;
@@ -126,6 +127,8 @@ function plan(body, run) {
   if (!best) return null;
   best.fail = pickFail(body, best.layout, run.pop0);
   best.score += best.fail.kind === 'fall' ? 15 : 0;
+  best.lock = strideLock(body, best.layout, best.fin.g, best.c); // 歩調が規則正しい = 勝利の走りを拍に合わせられる
+  best.score += best.lock ? 10 : 0;
   const n = body.bp.nodes.length;
   best.score += n >= 6 && n <= 14 ? 5 : 0;
   return best;
@@ -155,7 +158,7 @@ if (args['body-seed'] != null) {
     console.log(`  本番: 体の種 ${q.b.seed}`);
     const r = evolve(q.b, GENS), p = plan(q.b, r);
     if (!p) { console.log('    → 台本に合わず'); continue; }
-    console.log(`    → ゴール ${p.G} m・惜しい世代 ${p.al.gen} (${(p.gap).toFixed(1)} cm 手前)・第0世代 ${p.fail.kind}・点 ${p.score.toFixed(1)}`);
+    console.log(`    → ゴール ${p.G} m・惜しい世代 ${p.al.gen} (${(p.gap).toFixed(1)} cm 手前)・第0世代 ${p.fail.kind}・歩調 ${p.lock ? '拍に合う' : '不規則'}・ノード ${q.b.bp.nodes.length}・点 ${p.score.toFixed(1)}`);
     if (!P || p.score > P.score) { P = p; body = q.b; run = r; }
   }
   if (!P) { console.error('台本に合う体が見つかりませんでした。--cast を増やすか --seed を変えて。'); process.exit(1); }
@@ -177,37 +180,44 @@ function hookMapFrom(f0) {
 const endMap = (f0, f1, sp) => [[f0, r2(EVAL - (f1 - f0) / VFPS * sp)], [f1, EVAL]];
 // 最後の挑戦の歩調を曲に合わせる: 体が地面に着く瞬間 (いちばん低くなる時) を拍の頭に。
 // 歩き方が規則正しければ、ゴールの直後の着地 = ドロップ、勝利の走りは 1歩 = 1拍 (キックと同時に着地)
-function strideLock() {
-  const c0 = new Creature(body.bp, layout, fin.g, env), Hs = [], As = [];
+function strideLock(body, layout, finG, c) {
+  const c0 = new Creature(body.bp, layout, finG, env), Hs = [], As = [];
   for (let k = 0; k < (c + 8) * FPS; k++) {
     c0.step();
     let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
     for (let i = 0; i < c0.n; i++) { x0 = Math.min(x0, c0.x[i]); x1 = Math.max(x1, c0.x[i]); y0 = Math.min(y0, c0.y[i]); y1 = Math.max(y1, c0.y[i]); }
     Hs.push(y1); As.push((y1 - y0) / Math.max(1, x1 - x0));
   }
+  // 歩調の周期 = 体の高さの自己相関がいちばん高い遅れ (ゴールの前後)。1歩が2つの小さな蹴りでできていても拾える
+  const a = Math.max(0, Math.round((c - 3) * FPS)), b = Math.min(Hs.length, Math.round((c + 5) * FPS));
+  const seg = Hs.slice(a, b), mean = seg.reduce((x, y) => x + y, 0) / seg.length, z = seg.map(v => v - mean);
+  const v0 = z.reduce((x, v) => x + v * v, 0) / z.length;
+  if (v0 < 1) return null; // ほとんど上下しない
+  const r = L => { let t = 0; for (let i = 0; i + L < z.length; i++) t += z[i] * z[i + L]; return t / (z.length - L) / v0; };
+  let lag = 0, rBest = 0;
+  for (let L = Math.round(0.25 * FPS); L <= Math.round(2 * FPS); L++) { const v = r(L); if (v > rBest) { rBest = v; lag = L; } }
+  if (rBest < 0.8) return null; // 規則正しくない
+  const y0 = r(lag - 1), y2 = r(lag + 1), den = y0 - 2 * rBest + y2;
+  const Lc = (lag + (den ? 0.5 * (y0 - y2) / den : 0)) / FPS; // 1コマより細かく
   const tro = [];
   for (let k = 1; k < Hs.length - 1; k++) if (Hs[k] < Hs[k - 1] && Hs[k] <= Hs[k + 1]) tro.push((k + 1) / FPS);
-  const near = tro.filter(t => t > c - 3 && t < c + 7);
-  if (near.length < 6) return null;
-  const iv = near.slice(1).map((t, i) => t - near[i]);
-  const P = (near[near.length - 1] - near[0]) / (near.length - 1); // 平均の1歩 (ずれがたまらないように)
-  if (P < 0.15 || P > 1.2 || iv.some(v => Math.abs(v - P) > 0.15 * P)) return null; // 不規則なら合わせない
-  const tStar = near.find(t => t >= c);
+  const tStar = tro.find(t => t >= c); // ゴール直後の着地 = ドロップ
   if (tStar == null || tStar - c > 0.6) return null;
-  const pick = (cands, lo, hi, want) => cands.filter(v => v >= lo && v <= hi).sort((a, b) => Math.abs(a - want) - Math.abs(b - want))[0];
-  const sV = pick([P, 2 * P, 4 * P], 0.6, 1.5, 1);   // 勝利の走り: 1拍に 0.5/1/2 歩
-  const sA = pick([2 * P, 4 * P, 8 * P], 1.2, 2.4, 1.7); // 最後の挑戦: 8分か4分に1歩
-  if (!sV || !sA) return null;
-  const delta = clamp(tStar - c + 0.08, 0.15, 0.45);   // 鼻先がゴールを越えるのはスローの中
+  const pick = (cands, lo, hi, want) => cands.filter(v => v >= lo && v <= hi).sort((x, y) => Math.abs(x - want) - Math.abs(y - want))[0];
+  const sV = pick([Lc / 0.5, Lc / 1, Lc / 2], 0.6, 1.5, 1);        // 勝利の走り: 1周期 = 1/2/4 拍
+  if (!sV) return null;
+  const sA = pick([sV * 2, sV * 4], 1.2, 2.4, 1.7);                // 最後の挑戦: その倍 (8分音符に1歩)
+  if (!sA) return null;
+  const P = sV * 0.5;                                               // 1拍あたりのシミュレーションの秒
+  const delta = clamp(tStar - c + 0.08, 0.15, 0.45);               // 鼻先がゴールを越えるのはスローの中
   // 寝そべって進む? (走っている間の縦横比が、設計図よりずっと平たい)
-  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-  for (const p of body.bp.nodes) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
-  const run = As.slice(Math.round((c - 2) * FPS), Math.round((c + 4) * FPS)), avgA = run.reduce((a, b) => a + b, 0) / run.length;
-  const restA = (y1 - y0) / Math.max(1, x1 - x0);
-  return { P, tStar, sV, sA, delta, lying: restA > 1 && avgA < 0.6 * restA };
+  let x0 = Infinity, x1 = -Infinity, yy0 = Infinity, yy1 = -Infinity;
+  for (const p of body.bp.nodes) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); yy0 = Math.min(yy0, p.y); yy1 = Math.max(yy1, p.y); }
+  const run = As.slice(Math.round((c - 2) * FPS), Math.round((c + 4) * FPS)), avgA = run.reduce((x, y) => x + y, 0) / run.length;
+  const restA = (yy1 - yy0) / Math.max(1, x1 - x0);
+  return { P, tStar, sV, sA, delta, cycle: Lc, regularity: rBest, lying: restA > 1 && avgA < 0.6 * restA };
 }
-const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-const lock = strideLock();
+const lock = P.lock;
 const finalMap = lock
   ? [[F.final, r2(lock.tStar - lock.delta - (F.slow - F.final) / VFPS * lock.sA)], [F.slow, r2(lock.tStar - lock.delta)], [F.drop, r2(lock.tStar)], [F.cta, r2(lock.tStar + (F.cta - F.drop) / VFPS * lock.sV)]]
   : [[F.final, r2(c - 2.5)], [F.slow, r2(c - 0.25)], [F.drop, r2(c)], [F.cta, r2(c + 6)]];

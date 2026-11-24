@@ -348,7 +348,10 @@ async function renderFrame(i) {
   }
   // ゴール! (1小節) → 「だれも教えていない」(1小節)
   if (sg.id === 'final' && f >= A.drop && f < A.goalSub) pop(T.goalBig, W / 2, R.y + 232, 128, PAL.g2, f - A.drop);
-  if (sg.id === 'final' && f >= A.goalSub && f < A.result) pop(T.goalSub, W / 2, R.y + 200, 56, PAL.white, f - A.goalSub);
+  if (sg.id === 'final' && f >= A.goalSub && f < A.result) { // 世代の数字と横に重なるなら一段下げる
+    const gw = GX + width(`GEN ${sg.gen}`, 80) + 24, sw = width(T.goalSub, 56);
+    pop(T.goalSub, W / 2, (W - sw) / 2 < gw ? R.y + 250 : R.y + 200, 56, PAL.white, f - A.goalSub);
+  }
   if (f >= A.result && f < A.cta) results(f - A.result);
   if (sg.id === 'cta') cta(f - A.cta);
 
