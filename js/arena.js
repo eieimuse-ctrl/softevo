@@ -13,6 +13,7 @@ import { DOJO } from './dojo.js';
 import * as store from './store.js';
 import { onlineFighter } from './lobby.js';
 import { $, $$, el, toast } from './ui.js';
+import { tr, genLabel, rankLabel } from './i18n.js';
 
 const RACE_MAX = 6;
 const RACE_HUES = [195, 330, 45, 140, 270, 20];
@@ -49,13 +50,13 @@ export class Arena {
       const snaps = [], seen = new Set();
       const add = (gen, g, tag) => { if (g && !seen.has(gen)) { seen.add(gen); snaps.push({ gen, g, tag }); } };
       const gs = (d.genomes || []).slice().sort((a, b) => b.gen - a.gen);
-      if (d.best) add(d.best.gen, d.best.g, '🏆最高記録');
-      if (gs.length) add(gs[0].gen, gs[0].g, '最新');
+      if (d.best) add(d.best.gen, d.best.g, tr('🏆最高記録', '🏆best'));
+      if (gs.length) add(gs[0].gen, gs[0].g, tr('最新', 'latest'));
       for (const x of gs) add(x.gen, x.g, '');
       if (!snaps.length) continue;
       snaps.sort((a, b) => b.gen - a.gen);
       list.push({ kind: 'run', id: d.id, name: d.name, bp: d.blueprint, settings: { ...DEFAULT_SETTINGS, ...d.settings }, obj: d.settings.objective, snaps,
-        note: `${TERRAINS[d.settings.terrain]?.icon || ''} ${TERRAINS[d.settings.terrain]?.name || ''}で進化` });
+        note: tr(`${TERRAINS[d.settings.terrain]?.icon || ''} ${TERRAINS[d.settings.terrain]?.name || ''}で進化`, `evolved on ${TERRAINS[d.settings.terrain]?.icon || ''} ${TERRAINS[d.settings.terrain]?.name || ''}`) });
     }
     for (const x of DOJO) {
       list.push({ kind: 'dojo', id: `dojo:${x.id}`, name: x.name, icon: x.icon, bp: PRESETS[x.key].bp, settings: { ...DEFAULT_SETTINGS }, obj: x.obj, note: x.note, snaps: [{ gen: null, g: x.g, tag: '' }] });
@@ -67,7 +68,7 @@ export class Arena {
     const s = c.snaps[Math.min(si, c.snaps.length - 1)];
     return {
       cid: c.id, si, src: c.kind, baseName: c.name, gen: s.gen,
-      name: s.gen != null ? `${c.name}·${s.gen}代` : c.name,
+      name: s.gen != null ? tr(`${c.name}·${s.gen}代`, `${c.name}·g${s.gen}`) : c.name,
       bp: c.bp, hidden: c.settings.hidden, hidden2: c.settings.hidden2 || 0, obj: c.obj, g: store.b64ToF32(s.g),
       settings: c.settings, hue: 0,
     };
@@ -104,7 +105,7 @@ export class Arena {
   refresh() {
     this.stop(false);
     this.fillDefaults();
-    $('#arena-start').textContent = '▶ スタート';
+    $('#arena-start').textContent = tr('▶ スタート', '▶ Start');
     this.renderEntrants();
     this.renderOptions();
     $('#arena-result').innerHTML = '';
@@ -118,7 +119,7 @@ export class Arena {
     this.racers.forEach((f, i) => box.append(this.entrantCard(f, `${i + 1}`, hueColor(RACE_HUES[i], 2),
       g => { this.racers[i] = g; this.changed(); }, () => { this.racers.splice(i, 1); this.changed(); })));
     if (this.racers.length < RACE_MAX) {
-      box.append(el('button', { class: 'btn ghost add-entrant', onclick: () => this.pick(f => { this.racers.push(f); this.changed(); }) }, '＋ 出場者を追加'));
+      box.append(el('button', { class: 'btn ghost add-entrant', onclick: () => this.pick(f => { this.racers.push(f); this.changed(); }) }, tr('＋ 出場者を追加', '+ Add a racer')));
     }
   }
 
@@ -127,8 +128,8 @@ export class Arena {
     const cv = el('canvas', { class: 'ent-thumb' });
     const info = el('div', { class: 'ent-info' }, el('b', {}, c ? c.name : f.name));
     if (c && c.snaps.length > 1) {
-      const sel = el('select', { class: 'ent-gen', 'aria-label': '世代' });
-      c.snaps.forEach((s, i) => sel.append(el('option', { value: i, selected: i === f.si }, `第${s.gen}世代 ${s.tag}`)));
+      const sel = el('select', { class: 'ent-gen', 'aria-label': tr('世代', 'Generation') });
+      c.snaps.forEach((s, i) => sel.append(el('option', { value: i, selected: i === f.si }, `${genLabel(s.gen)} ${s.tag}`)));
       sel.addEventListener('change', () => onChange(this.fighter(c, +sel.value)));
       info.append(sel);
     }
@@ -136,8 +137,8 @@ export class Arena {
     const card = el('div', { class: 'entrant', style: `--c:${color}` },
       el('span', { class: 'ent-side' }, side), cv, info,
       el('div', { class: 'ent-actions' },
-        el('button', { class: 'btn ghost small', onclick: () => this.pick(onChange) }, '変更'),
-        onRemove ? el('button', { class: 'x', title: '外す', onclick: onRemove }, '✕') : null));
+        el('button', { class: 'btn ghost small', onclick: () => this.pick(onChange) }, tr('変更', 'Change')),
+        onRemove ? el('button', { class: 'x', title: tr('外す', 'Remove'), onclick: onRemove }, '✕') : null));
     requestAnimationFrame(() => drawThumb(cv, f.bp));
     return card;
   }
@@ -146,7 +147,7 @@ export class Arena {
   pick(onPick) {
     const back = el('div', { class: 'modal-back' });
     const close = () => back.remove();
-    const box = el('div', { class: 'modal wide' }, el('h3', {}, '出場者を選ぶ'));
+    const box = el('div', { class: 'modal wide' }, el('h3', {}, tr('出場者を選ぶ', 'Pick a racer')));
     const section = (title, items) => {
       if (!items.length) return;
       box.append(el('h4', { class: 'pick-h' }, title));
@@ -154,28 +155,28 @@ export class Arena {
       for (const c of items) {
         const cv = el('canvas', { class: 'pick-thumb' });
         grid.append(el('button', { class: 'pick-item', onclick: () => { close(); onPick(this.fighter(c)); } },
-          cv, el('b', {}, `${c.icon ? c.icon + ' ' : ''}${c.name}`), el('small', {}, c.snaps[0].gen != null ? `第${c.snaps[0].gen}世代まで · ${c.note}` : c.note)));
+          cv, el('b', {}, `${c.icon ? c.icon + ' ' : ''}${c.name}`), el('small', {}, c.snaps[0].gen != null ? tr(`第${c.snaps[0].gen}世代まで · ${c.note}`, `up to gen ${c.snaps[0].gen} · ${c.note}`) : c.note)));
         requestAnimationFrame(() => drawThumb(cv, c.bp));
       }
       box.append(grid);
     };
     const mine = this.cands.filter(c => c.kind === 'run');
-    section('マイ生物 (世代はあとで選べます)', mine);
-    if (!mine.length) box.append(el('p', { class: 'dim' }, 'まだ育てた生物がいません。ホームから生物をつくって進化させると、ここに出場できます。'));
-    section('道場', this.cands.filter(c => c.kind === 'dojo'));
+    section(tr('マイ生物 (世代はあとで選べます)', 'My creatures (pick the generation later)'), mine);
+    if (!mine.length) box.append(el('p', { class: 'dim' }, tr('まだ育てた生物がいません。ホームから生物をつくって進化させると、ここに出場できます。', 'No creatures of your own yet. Make one on the home screen and evolve it, and it can race here.')));
+    section(tr('道場', 'Dojo'), this.cands.filter(c => c.kind === 'dojo'));
     const online = this.online;
     if (online.length) {
-      box.append(el('h4', { class: 'pick-h' }, '🌐 オンラインの生物'));
+      box.append(el('h4', { class: 'pick-h' }, tr('🌐 オンラインの生物', '🌐 Online creatures')));
       const grid = el('div', { class: 'pick-grid' });
       for (const c of online) {
         const cv = el('canvas', { class: 'pick-thumb' });
         grid.append(el('button', { class: 'pick-item', onclick: () => { close(); onPick(onlineFighter(c)); } },
-          cv, el('b', {}, c.name), el('small', {}, `${c.owner} さん${c.msg ? `「${c.msg}」` : ''}`)));
+          cv, el('b', {}, c.name), el('small', {}, tr(`${c.owner} さん${c.msg ? `「${c.msg}」` : ''}`, `by ${c.owner}${c.msg ? ` "${c.msg}"` : ''}`))));
         requestAnimationFrame(() => drawThumb(cv, c.bp));
       }
       box.append(grid);
     }
-    box.append(el('div', { class: 'modal-actions' }, el('button', { class: 'btn ghost', onclick: close }, 'とじる')));
+    box.append(el('div', { class: 'modal-actions' }, el('button', { class: 'btn ghost', onclick: close }, tr('とじる', 'Close'))));
     back.append(box);
     back.addEventListener('pointerdown', e => { if (e.target === back) close(); });
     document.body.append(back);
@@ -185,16 +186,16 @@ export class Arena {
     const box = $('#arena-options');
     box.innerHTML = '';
     const seg = el('div', { class: 'seg small' });
-    for (const [k, label] of [['common', '共通の地形'], ['home', 'それぞれの故郷']]) {
+    for (const [k, label] of [['common', tr('共通の地形', 'Same terrain')], ['home', tr('それぞれの故郷', 'Home turf')]]) {
       seg.append(el('button', { class: k === this.raceEnv ? 'active' : '', onclick: () => { this.raceEnv = k; this.renderOptions(); this.preview(); } }, label));
     }
-    box.append(el('div', { class: 'choice-row' }, el('span', {}, '走る場所'), seg));
+    box.append(el('div', { class: 'choice-row' }, el('span', {}, tr('走る場所', 'Where')), seg));
     if (this.raceEnv === 'common') {
       const ts = el('div', { class: 'seg small' });
       for (const [k, t] of Object.entries(TERRAINS)) ts.append(el('button', { class: k === this.terrain ? 'active' : '', onclick: () => { this.terrain = k; this.renderOptions(); this.preview(); } }, `${t.icon} ${t.name}`));
-      box.append(el('div', { class: 'choice-row' }, el('span', {}, '地形'), ts));
+      box.append(el('div', { class: 'choice-row' }, el('span', {}, tr('地形', 'Terrain')), ts));
     } else {
-      box.append(el('p', { class: 'pane-note dim' }, '各自が進化した地形・重力・摩擦で走ります。育った環境の違いがそのまま出ます。'));
+      box.append(el('p', { class: 'pane-note dim' }, tr('各自が進化した地形・重力・摩擦で走ります。育った環境の違いがそのまま出ます。', 'Each runs on the terrain, gravity and friction it evolved in. Different upbringings show as they are.')));
     }
   }
 
@@ -228,18 +229,18 @@ export class Arena {
   }
 
   start() {
-    if (this.racers.length < 2) return toast('2体以上を並べてください');
+    if (this.racers.length < 2) return toast(tr('2体以上を並べてください', 'Line up at least 2 racers'));
     this.results = [];
     $('#arena-result').innerHTML = '';
     this.preview();
     this.state = 'playing';
-    $('#arena-start').textContent = '■ 中断';
+    $('#arena-start').textContent = tr('■ 中断', '■ Stop');
   }
 
   stop(render = true) {
     if (this.state !== 'playing') return;
     this.state = 'idle';
-    $('#arena-start').textContent = '▶ スタート';
+    $('#arena-start').textContent = tr('▶ スタート', '▶ Start');
     if (render) this.preview();
   }
 
@@ -252,17 +253,17 @@ export class Arena {
     this.state = 'done';
     const units = this.theater.units;
     const order = units.map((u, i) => ({ i, d: u.broken ? -Infinity : u.distance() })).sort((a, b) => b.d - a.d);
-    order.forEach((o, r) => { units[o.i].lane.rank = MEDALS[r] || `${r + 1}位`; });
+    order.forEach((o, r) => { units[o.i].lane.rank = MEDALS[r] || rankLabel(r + 1); });
     const box = $('#arena-result');
     box.innerHTML = '';
-    box.append(el('h4', {}, '🏁 結果'));
+    box.append(el('h4', {}, tr('🏁 結果', '🏁 Results')));
     const ol = el('ol', { class: 'race-result' });
     for (const o of order) {
       const lane = units[o.i].lane;
-      ol.append(el('li', {}, el('span', {}, lane.rank), el('b', {}, lane.label), el('span', { class: 'gold' }, isFinite(o.d) ? `${(o.d / 100).toFixed(2)} m` : '転倒')));
+      ol.append(el('li', {}, el('span', {}, lane.rank), el('b', {}, lane.label), el('span', { class: 'gold' }, isFinite(o.d) ? `${(o.d / 100).toFixed(2)} m` : tr('転倒', 'fell'))));
     }
-    box.append(ol, el('div', { class: 'result-actions' }, el('button', { class: 'btn ghost small', onclick: () => this.start() }, '↺ もう一度')));
-    $('#arena-start').textContent = '▶ スタート';
+    box.append(ol, el('div', { class: 'result-actions' }, el('button', { class: 'btn ghost small', onclick: () => this.start() }, tr('↺ もう一度', '↺ Again'))));
+    $('#arena-start').textContent = tr('▶ スタート', '▶ Start');
   }
 
   frame(dt, t) {

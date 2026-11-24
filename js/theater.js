@@ -8,6 +8,7 @@
 import { Creature, FPS, groundY, formatFitness } from './sim.js';
 import { Camera, drawCreature, drawWorld } from './world.js';
 import { fitCanvas, clamp, PAL, hueColor, pixelDisc, dotSpace, toDot } from './ui.js';
+import { rankLabel } from './i18n.js';
 
 const HIST = 240; // 記録するフレーム数 (4秒)
 
@@ -263,7 +264,7 @@ export class Theater {
       drawCreature(ctx, u, {});
       ctx.restore();
       // 札: 左上に小さく。箱で塗らずに縁取りの文字で (後ろが透けて見える)。幅はレーンの半分まで
-      const rank = l.rank || (bodies.length > 1 ? `${order.indexOf(u) + 1}位` : '');
+      const rank = l.rank || (bodies.length > 1 ? rankLabel(order.indexOf(u) + 1) : '');
       const dist = formatFitness(u.fitness(l.env.objective), l.env.objective);
       const maxW = w * 0.48 - 16;
       let fs = lh < 60 ? 11 : 12, name = label;

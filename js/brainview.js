@@ -8,11 +8,12 @@
    ===================================================================== */
 import { weightIndex, biasIndex, rhythmHz } from './sim.js';
 import { fitCanvas, clamp, signedColor, muscleColor, PAL, pixelDisc, dotSpace, toDot } from './ui.js';
+import { tr, isEn } from './i18n.js';
 
 const GROUP_COLOR = { stretch: PAL.p2, touch: PAL.g2, body: PAL.b2, clock: PAL.t3 };
 const GROUP_NAME = { stretch: '筋の伸び', touch: '接地', body: '姿勢/速度', clock: 'リズム' };
 /** 脳の図の文言。英語のリール用に差し替えられる (brainView.text = BRAIN_TEXT_EN) */
-const BRAIN_TEXT_JA = { senses: '感覚', hidden: '隠れ層', muscles: '筋肉', groups: GROUP_NAME, input: p => p.label, output: o => o.label };
+export const BRAIN_TEXT_JA = { senses: '感覚', hidden: '隠れ層', muscles: '筋肉', groups: GROUP_NAME, input: p => p.label, output: o => o.label };
 export const BRAIN_TEXT_EN = {
   senses: 'SENSES', hidden: 'HIDDEN', muscles: 'MUSCLES',
   groups: { stretch: 'stretch', touch: 'touch', body: 'balance', clock: 'rhythm' },
@@ -26,7 +27,7 @@ export class BrainView {
     this.canvas = canvas;
     this.hooks = hooks;
     this.mode = 'activity';
-    this.text = BRAIN_TEXT_JA;
+    this.text = isEn ? BRAIN_TEXT_EN : BRAIN_TEXT_JA;
     this.sel = null;
     this.hover = null;
     this.layout = null;
@@ -98,23 +99,23 @@ export class BrainView {
     if (n.l === 0) {
       const inp = inputs[n.i];
       const desc = {
-        stretch: 'この筋肉がどれだけ伸びている(+)/縮んでいる(−)か。体の「固有感覚」です。',
-        touch: 'この点が地面に触れていると 1。足裏の感覚です。',
-        body: '体全体の傾きや速さ。バランス感覚です。',
-        clock: `脳内の振り子。周期は遺伝子で決まり、この個体は ${rhythmHz(g).toFixed(2)} Hz。歩くリズムの源になりやすい入力です。`,
+        stretch: tr('この筋肉がどれだけ伸びている(+)/縮んでいる(−)か。体の「固有感覚」です。', 'How stretched (+) or contracted (−) this muscle is. The body\'s sense of itself.'),
+        touch: tr('この点が地面に触れていると 1。足裏の感覚です。', '1 while this point touches the ground. The sense of touch in the feet.'),
+        body: tr('体全体の傾きや速さ。バランス感覚です。', 'Tilt and speed of the whole body. The sense of balance.'),
+        clock: tr(`脳内の振り子。周期は遺伝子で決まり、この個体は ${rhythmHz(g).toFixed(2)} Hz。歩くリズムの源になりやすい入力です。`, `A pendulum inside the brain. Its period is set by the genes — ${rhythmHz(g).toFixed(2)} Hz for this one. It often becomes the beat of the walk.`),
       }[inp.group];
-      return { title: `感覚: ${inp.label}`, group: inp.group, value: v, desc, links: this.topLinks(n) };
+      return { title: tr(`感覚: ${this.text.input(inp)}`, `Sense: ${this.text.input(inp)}`), group: inp.group, value: v, desc, links: this.topLinks(n) };
     }
     if (n.l === L - 1) {
       const o = outputs[n.i];
-      return { title: `運動: ${o.label}`, value: v, color: muscleColor(n.i, 2), desc: `この値で筋肉${n.i + 1}の長さが決まります。＋で伸び、−で縮む。`, links: this.topLinks(n) };
+      return { title: tr(`運動: ${this.text.output(o)}`, `Motor: ${this.text.output(o)}`), value: v, color: muscleColor(n.i, 2), desc: tr(`この値で筋肉${n.i + 1}の長さが決まります。＋で伸び、−で縮む。`, `Sets the length of muscle ${n.i + 1}. + stretches it, − contracts it.`), links: this.topLinks(n) };
     }
-    return { title: `隠れ層${n.l} ニューロン #${n.i + 1}`, value: v, desc: `バイアス ${g[biasIndex(sizes, n.l, n.i)].toFixed(2)}。感覚を組み合わせて「特徴」を作る中間ニューロンです。`, links: this.topLinks(n) };
+    return { title: tr(`隠れ層${n.l} ニューロン #${n.i + 1}`, `Hidden layer ${n.l} neuron #${n.i + 1}`), value: v, desc: tr(`バイアス ${g[biasIndex(sizes, n.l, n.i)].toFixed(2)}。感覚を組み合わせて「特徴」を作る中間ニューロンです。`, `Bias ${g[biasIndex(sizes, n.l, n.i)].toFixed(2)}. A middle neuron that combines senses into "features".`), links: this.topLinks(n) };
   }
 
   topLinks(n) {
     const { sizes, inputs, outputs } = this.layout, g = this.genome, L = sizes.length;
-    const name = (l, i) => l === 0 ? inputs[i].label : l === L - 1 ? outputs[i].label : `隠れ${l}-#${i + 1}`;
+    const name = (l, i) => l === 0 ? this.text.input(inputs[i]) : l === L - 1 ? this.text.output(outputs[i]) : tr(`隠れ${l}-#${i + 1}`, `H${l}-#${i + 1}`);
     const res = { in: [], out: [] };
     if (n.l > 0) {
       const arr = [];

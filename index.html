@@ -1,18 +1,21 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="theme-color" content="#0b0f24">
-<meta name="description" content="自分で設計した軟体生物が、ニューラルネットワークの脳を進化させて歩き出すまでを観察するシミュレータ">
-<title>SoftEvo — 進化観察ラボ</title>
+<meta name="description" content="自分で設計した軟体生物が、ニューラルネットワークの脳を進化させて歩き出すまでを観察するシミュレータ / Design a soft-bodied creature and watch its neural-network brain evolve until it walks.">
+<title data-en="Softevo — Evolution Lab">SoftEvo — 進化観察ラボ</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="fonts/dotgothic16.css">
 <link rel="stylesheet" href="style.css">
+<!-- 英語のときは、文言を差し替えるまで画面を隠す (日本語が一瞬見えないように) -->
+<script>try{var q=new URLSearchParams(location.search).get('lang'),s=null;try{s=localStorage.getItem('softevo/lang')}catch(e){}var l=q==='en'||q==='ja'?q:s==='en'||s==='ja'?s:'en';document.documentElement.lang=l;if(l==='en')document.documentElement.classList.add('i18n-wait')}catch(e){}</script>
+<style>.i18n-wait body{visibility:hidden}</style>
 </head>
 <body data-screen="home">
 
@@ -20,21 +23,22 @@
 <div id="screen-home" class="screen active">
   <header class="hero">
     <h1 class="logo" aria-label="SoftEvo">Soft<span>Evo</span></h1>
-    <p class="logo-sub">― 進化観察ラボ ―</p>
+    <p class="logo-sub" data-en="― Evolution Lab ―">― 進化観察ラボ ―</p>
     <div class="home-demo"><canvas id="home-demo" aria-hidden="true"></canvas></div>
-    <p class="tagline">あなたが設計した生き物が、<b>脳を育てて</b>歩き出すまでを観察する。<span class="cursor">▮</span></p>
+    <p class="tagline" data-en-html="Design a creature, then watch it <b>grow a brain</b> and learn to walk.<span class=&quot;cursor&quot;>▮</span>">あなたが設計した生き物が、<b>脳を育てて</b>歩き出すまでを観察する。<span class="cursor">▮</span></p>
     <div class="hero-actions">
-      <button id="btn-new" class="btn primary big">＋ 新しい生物をつくる</button>
-      <button id="btn-arena" class="btn gold big">🏃 かけっこ</button>
-      <button id="btn-online" class="btn ghost big">🌐 オンライン</button>
-      <button id="btn-quick" class="btn ghost">🎲 おまかせで始める</button>
-      <button id="btn-import" class="btn ghost">📂 読み込み</button>
-      <button id="btn-help" class="btn ghost">？ 遊び方</button>
+      <button id="btn-new" class="btn primary big" data-en="+ New creature">＋ 新しい生物をつくる</button>
+      <button id="btn-arena" class="btn gold big" data-en="🏃 Race">🏃 かけっこ</button>
+      <button id="btn-online" class="btn ghost big" data-en="🌐 Online">🌐 オンライン</button>
+      <button id="btn-quick" class="btn ghost" data-en="🎲 Surprise me">🎲 おまかせで始める</button>
+      <button id="btn-import" class="btn ghost" data-en="📂 Import">📂 読み込み</button>
+      <button id="btn-help" class="btn ghost" data-en="? How to play">？ 遊び方</button>
+      <button id="btn-settings" class="btn ghost" data-en="⚙ Settings">⚙ 設定</button>
     </div>
   </header>
   <section class="home-list">
-    <h2>マイ生物</h2>
-    <p id="home-empty" class="empty">まだ生物がいません。最初の1体をつくってみよう。</p>
+    <h2 data-en="My creatures">マイ生物</h2>
+    <p id="home-empty" class="empty" data-en="No creatures yet. Make your first one!">まだ生物がいません。最初の1体をつくってみよう。</p>
     <div id="run-list" class="run-grid"></div>
   </section>
 </div>
@@ -42,25 +46,25 @@
 <!-- ═══════════════ 設計 ═══════════════ -->
 <div id="screen-build" class="screen">
   <header class="build-top">
-    <button id="build-home" class="icon-btn" title="ホームへ">←</button>
-    <input id="creature-name" maxlength="16" placeholder="名前" aria-label="生物の名前">
+    <button id="build-home" class="icon-btn" title="ホームへ" data-en-title="Home">←</button>
+    <input id="creature-name" maxlength="16" placeholder="名前" aria-label="生物の名前" data-en-ph="Name" data-en-aria="Creature name">
     <div class="tool-group" id="tools">
-      <button data-tool="node" class="tool active" title="ノード (1)"><i class="ti ti-node"></i>ノード</button>
-      <button data-tool="bone" class="tool" title="骨 (2)"><i class="ti ti-bone"></i>骨</button>
-      <button data-tool="muscle" class="tool" title="筋肉 (3)"><i class="ti ti-muscle"></i>筋肉</button>
-      <button data-tool="erase" class="tool" title="消す (4)"><i class="ti">✕</i>消す</button>
+      <button data-tool="node" class="tool active" title="ノード (1)" data-en-title="Node (1)"><i class="ti ti-node"></i><span data-en="Node">ノード</span></button>
+      <button data-tool="bone" class="tool" title="骨 (2)" data-en-title="Bone (2)"><i class="ti ti-bone"></i><span data-en="Bone">骨</span></button>
+      <button data-tool="muscle" class="tool" title="筋肉 (3)" data-en-title="Muscle (3)"><i class="ti ti-muscle"></i><span data-en="Muscle">筋肉</span></button>
+      <button data-tool="erase" class="tool" title="消す (4)" data-en-title="Erase (4)"><i class="ti">✕</i><span data-en="Erase">消す</span></button>
     </div>
     <div class="tool-group">
-      <button id="btn-mirror" class="tool toggle active" title="左右対称">⇋<span class="lbl"> 対称</span></button>
-      <button id="btn-undo" class="tool" title="元に戻す">↶</button>
-      <button id="btn-redo" class="tool" title="やり直し">↷</button>
-      <button id="btn-fit" class="tool" title="全体表示">⤢</button>
-      <button id="btn-clear" class="tool" title="全消去">🗑</button>
+      <button id="btn-mirror" class="tool toggle active" title="左右対称" data-en-title="Mirror">⇋<span class="lbl" data-en=" Mirror"> 対称</span></button>
+      <button id="btn-undo" class="tool" title="元に戻す" data-en-title="Undo">↶</button>
+      <button id="btn-redo" class="tool" title="やり直し" data-en-title="Redo">↷</button>
+      <button id="btn-fit" class="tool" title="全体表示" data-en-title="Fit to view">⤢</button>
+      <button id="btn-clear" class="tool" title="全消去" data-en-title="Clear all">🗑</button>
     </div>
   </header>
   <main class="build-main">
     <canvas id="build-canvas"></canvas>
-    <div id="presets" class="presets"><span class="presets-label">プリセット</span></div>
+    <div id="presets" class="presets"><span class="presets-label" data-en="Presets">プリセット</span></div>
     <div id="build-hint" class="hint"></div>
   </main>
   <footer class="build-bottom">
@@ -69,37 +73,37 @@
       <div id="build-error" class="build-error"></div>
     </div>
     <details id="build-settings">
-      <summary>⚙ 進化の設定</summary>
+      <summary data-en="⚙ Evolution settings">⚙ 進化の設定</summary>
       <div id="build-settings-body" class="settings-body"></div>
     </details>
-    <button id="btn-preview" class="btn ghost">🫨 試運転</button>
-    <button id="btn-evolve" class="btn primary big">▶ 進化スタート</button>
+    <button id="btn-preview" class="btn ghost" data-en="🫨 Test drive">🫨 試運転</button>
+    <button id="btn-evolve" class="btn primary big" data-en="▶ Start evolving">▶ 進化スタート</button>
   </footer>
 </div>
 
 <!-- ═══════════════ 進化ラボ ═══════════════ -->
 <div id="screen-lab" class="screen">
   <header class="lab-top">
-    <button id="lab-home" class="icon-btn" title="保存してホームへ">🏠</button>
+    <button id="lab-home" class="icon-btn" title="保存してホームへ" data-en-title="Save and go home">🏠</button>
     <div class="lab-title"><span id="lab-name"></span><small id="lab-sub"></small></div>
     <div class="lab-stats">
-      <div class="stat"><b id="st-gen">0</b><small>世代</small></div>
-      <div class="stat gold"><b id="st-best">—</b><small id="st-best-label">最高記録</small></div>
-      <div class="stat"><b id="st-rate">—</b><small>世代/分</small></div>
+      <div class="stat"><b id="st-gen">0</b><small data-en="gen">世代</small></div>
+      <div class="stat gold"><b id="st-best">—</b><small id="st-best-label" data-en="best">最高記録</small></div>
+      <div class="stat"><b id="st-rate">—</b><small data-en="gen/min">世代/分</small></div>
     </div>
-    <div class="seg" id="evo-mode" role="group" aria-label="進化の速さ">
-      <button data-mode="pause" title="一時停止 (Space)"><svg width="12" height="12" viewBox="0 0 12 12" aria-label="一時停止"><rect x="2" y="1" width="3" height="10" rx="1" fill="currentColor"/><rect x="7" y="1" width="3" height="10" rx="1" fill="currentColor"/></svg></button>
-      <button data-mode="watch" class="active" title="1世代ずつ再生と同期">▶<span class="lbl"> 観察</span></button>
-      <button data-mode="fast" title="裏で全力で進化">⏩<span class="lbl"> 高速</span></button>
+    <div class="seg" id="evo-mode" role="group" aria-label="進化の速さ" data-en-aria="Evolution speed">
+      <button data-mode="pause" title="一時停止 (Space)" data-en-title="Pause (Space)"><svg width="12" height="12" viewBox="0 0 12 12" aria-label="一時停止" data-en-aria="Pause"><rect x="2" y="1" width="3" height="10" rx="1" fill="currentColor"/><rect x="7" y="1" width="3" height="10" rx="1" fill="currentColor"/></svg></button>
+      <button data-mode="watch" class="active" title="1世代ずつ再生と同期" data-en-title="One generation per replay">▶<span class="lbl" data-en=" Watch"> 観察</span></button>
+      <button data-mode="fast" title="裏で全力で進化" data-en-title="Evolve at full speed in the background">⏩<span class="lbl" data-en=" Fast"> 高速</span></button>
     </div>
-    <button id="lab-save" class="icon-btn" title="保存">💾</button>
+    <button id="lab-save" class="icon-btn" title="保存" data-en-title="Save">💾</button>
     <div class="menu-wrap">
-      <button id="lab-menu" class="icon-btn" title="メニュー">⋯</button>
+      <button id="lab-menu" class="icon-btn" title="メニュー" data-en-title="Menu">⋯</button>
       <div id="lab-menu-pop" class="menu hidden">
-        <button id="m-rename">✎ 名前を変更</button>
-        <button id="m-edit">🔧 この体を改造して新しい実験</button>
-        <button id="m-export">⤓ ファイルに書き出し</button>
-        <button id="m-help">？ 遊び方</button>
+        <button id="m-rename" data-en="✎ Rename">✎ 名前を変更</button>
+        <button id="m-edit" data-en="🔧 Modify this body in a new experiment">🔧 この体を改造して新しい実験</button>
+        <button id="m-export" data-en="⤓ Export to file">⤓ ファイルに書き出し</button>
+        <button id="m-help" data-en="? How to play">？ 遊び方</button>
       </div>
     </div>
   </header>
@@ -110,42 +114,42 @@
       <div class="th-stage">
         <canvas id="theater"></canvas>
         <div class="th-caption">
-          <div><span id="th-title">進化の準備中…</span> <span id="th-chip" class="chip hidden"></span></div>
+          <div><span id="th-title" data-en="Getting ready to evolve…">進化の準備中…</span> <span id="th-chip" class="chip hidden"></span></div>
           <small id="th-sub"></small>
           <button id="th-latest" class="latest-btn hidden"></button>
         </div>
         <div id="event-feed" class="event-feed"></div>
         <div id="th-result" class="th-result"></div>
-        <div id="knock-badge" class="knock-badge hidden"><span></span><button>元に戻す</button></div>
+        <div id="knock-badge" class="knock-badge hidden"><span></span><button data-en="Undo">元に戻す</button></div>
         <div class="th-progress"><div id="th-bar"></div></div>
       </div>
       <div class="th-controls">
         <div class="seg small" id="view-mode">
-          <button data-view="live" class="active" title="常に最新のチャンピオン">最新</button>
-          <button data-view="pinned" title="推移グラフや物語で選んだ世代をくり返す">選択</button>
-          <button data-view="parade" title="節目の世代を並べて同時に走らせる">パレード</button>
+          <button data-view="live" class="active" title="常に最新のチャンピオン" data-en-title="Always the latest champion" data-en="Latest">最新</button>
+          <button data-view="pinned" title="推移グラフや物語で選んだ世代をくり返す" data-en-title="Replay the generation picked in the chart or story" data-en="Picked">選択</button>
+          <button data-view="parade" title="節目の世代を並べて同時に走らせる" data-en-title="Run milestone generations side by side" data-en="Parade">パレード</button>
         </div>
         <div class="seg small" id="play-speed">
-          <button data-speed="0.25" title="スロー">¼×</button>
+          <button data-speed="0.25" title="スロー" data-en-title="Slow">¼×</button>
           <button data-speed="1" class="active">1×</button>
           <button data-speed="2">2×</button>
           <button data-speed="4">4×</button>
         </div>
-        <button id="btn-ghosts" class="tool small toggle active" title="同世代のライバルを表示">👻</button>
-        <button id="btn-replay" class="tool small" title="最初から再生">↺</button>
+        <button id="btn-ghosts" class="tool small toggle active" title="同世代のライバルを表示" data-en-title="Show rivals from the same generation">👻</button>
+        <button id="btn-replay" class="tool small" title="最初から再生" data-en-title="Replay from the start">↺</button>
       </div>
     </section>
 
     <section class="panel brain-panel">
       <div class="panel-head">
-        <h3>🧠 脳</h3>
+        <h3 data-en="🧠 Brain">🧠 脳</h3>
         <small id="brain-sub"></small>
         <div class="seg small" id="brain-mode">
-          <button data-bm="activity" class="active">活動</button>
-          <button data-bm="weights">重み</button>
-          <button data-bm="mutation">変異</button>
+          <button data-bm="activity" class="active" data-en="Activity">活動</button>
+          <button data-bm="weights" data-en="Weights">重み</button>
+          <button data-bm="mutation" data-en="Mutation">変異</button>
         </div>
-        <button id="brain-expand" class="tool small" title="拡大">⤢</button>
+        <button id="brain-expand" class="tool small" title="拡大" data-en-title="Expand">⤢</button>
       </div>
       <div class="brain-wrap">
         <canvas id="brain"></canvas>
@@ -154,7 +158,7 @@
           <canvas id="nc-spark"></canvas>
           <p id="nc-desc"></p>
           <div id="nc-links" class="nc-links"></div>
-          <button id="nc-knock" class="btn small danger-outline">🔪 ノックアウト</button>
+          <button id="nc-knock" class="btn small danger-outline" data-en="🔪 Knock out">🔪 ノックアウト</button>
         </div>
       </div>
       <div id="brain-note" class="panel-note"></div>
@@ -162,11 +166,11 @@
 
     <section class="panel tabs-panel">
       <nav class="tabs">
-        <button data-tab="timeline" class="active">📈<span> 推移</span></button>
-        <button data-tab="gait">🎼<span> 歩容</span></button>
-        <button data-tab="clades">🌳<span> 系統</span></button>
-        <button data-tab="journal">📜<span> 物語</span></button>
-        <button data-tab="env">🌍<span> 環境</span></button>
+        <button data-tab="timeline" class="active">📈<span data-en=" Progress"> 推移</span></button>
+        <button data-tab="gait">🎼<span data-en=" Gait"> 歩容</span></button>
+        <button data-tab="clades">🌳<span data-en=" Lineages"> 系統</span></button>
+        <button data-tab="journal">📜<span data-en=" Story"> 物語</span></button>
+        <button data-tab="env">🌍<span data-en=" World"> 環境</span></button>
       </nav>
       <div class="tab-body">
         <div data-pane="timeline" class="pane active"><canvas id="timeline"></canvas></div>
@@ -182,8 +186,8 @@
 <!-- ═══════════════ かけっこ ═══════════════ -->
 <div id="screen-arena" class="screen">
   <header class="lab-top arena-top">
-    <button id="arena-home" class="icon-btn" title="ホームへ">←</button>
-    <div class="lab-title"><span>🏃 かけっこ</span><small id="arena-desc">同じ条件で横一列に並んで走る。体の設計と脳の完成度がそのまま出る。最大6体</small></div>
+    <button id="arena-home" class="icon-btn" title="ホームへ" data-en-title="Home">←</button>
+    <div class="lab-title"><span data-en="🏃 Race">🏃 かけっこ</span><small id="arena-desc" data-en="Line up side by side under the same conditions. Body design and brain show as they are. Up to 6.">同じ条件で横一列に並んで走る。体の設計と脳の完成度がそのまま出る。最大6体</small></div>
   </header>
   <main class="arena-grid">
     <section class="panel arena-stage">
@@ -191,18 +195,18 @@
         <canvas id="arena-canvas"></canvas>
       </div>
       <div class="arena-controls">
-        <button id="arena-start" class="btn primary">▶ スタート</button>
+        <button id="arena-start" class="btn primary" data-en="▶ Start">▶ スタート</button>
         <div class="seg small" id="arena-speed">
-          <button data-speed="0.25" title="スロー">¼×</button>
+          <button data-speed="0.25" title="スロー" data-en-title="Slow">¼×</button>
           <button data-speed="1" class="active">1×</button>
           <button data-speed="2">2×</button>
           <button data-speed="4">4×</button>
         </div>
-        <button id="arena-ghosts" class="tool small toggle active" title="ほかのレーンの生物をゴーストで重ねる">👻</button>
+        <button id="arena-ghosts" class="tool small toggle active" title="ほかのレーンの生物をゴーストで重ねる" data-en-title="Overlay the other lanes as ghosts">👻</button>
       </div>
     </section>
     <section class="panel arena-side">
-      <div class="panel-head"><h3>出場者</h3></div>
+      <div class="panel-head"><h3 data-en="Racers">出場者</h3></div>
       <div class="arena-side-body">
         <div id="arena-entrants" class="entrants"></div>
         <div id="arena-options"></div>
@@ -215,10 +219,10 @@
 <!-- ═══════════════ オンライン ═══════════════ -->
 <div id="screen-online" class="screen">
   <header class="lab-top online-top">
-    <button id="online-home" class="icon-btn" title="ホームへ">←</button>
-    <div class="lab-title"><span>🌐 オンライン</span><small>生物を公開して、みんなで一緒に走る</small></div>
+    <button id="online-home" class="icon-btn" title="ホームへ" data-en-title="Home">←</button>
+    <div class="lab-title"><span data-en="🌐 Online">🌐 オンライン</span><small data-en="Publish your creature and race together">生物を公開して、みんなで一緒に走る</small></div>
     <button id="online-name" class="btn ghost small"></button>
-    <button id="online-refresh" class="icon-btn" title="更新">↻</button>
+    <button id="online-refresh" class="icon-btn" title="更新" data-en-title="Refresh">↻</button>
   </header>
   <main id="online-body" class="online-body"></main>
 </div>

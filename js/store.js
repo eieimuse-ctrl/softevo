@@ -2,6 +2,7 @@
    SoftEvo — store.js
    ローカル保存 (localStorage) と ファイル書き出し/読み込み
    ===================================================================== */
+import { isEn } from './i18n.js';
 const INDEX_KEY = 'softevo9/index';
 const RUN_KEY = id => `softevo9/run/${id}`;
 
@@ -74,8 +75,11 @@ export function pickJSONFile() {
 
 const NA = ['プニ', 'モチ', 'ポヨ', 'ピコ', 'ムニ', 'フワ', 'ペタ', 'ヌル', 'コロ', 'ぷる', 'トコ', 'ミル', 'ピピ', 'グニ'];
 const NB = ['ロン', 'タン', 'ミン', 'スケ', 'ボウ', 'ゾウ', 'ノスケ', 'ピー', 'マル', 'ン', 'リン', 'ゴン', 'チ'];
+const NA_EN = ['Puni', 'Mochi', 'Poyo', 'Piko', 'Muni', 'Fuwa', 'Peta', 'Nuru', 'Koro', 'Puru', 'Toko', 'Miru', 'Pipi', 'Guni'];
+const NB_EN = ['ron', 'tan', 'min', 'suke', 'bo', 'zo', 'nosuke', 'pi', 'maru', 'n', 'rin', 'gon', 'chi'];
 export function randomName() {
-  return NA[(Math.random() * NA.length) | 0] + NB[(Math.random() * NB.length) | 0];
+  const a = (Math.random() * NA.length) | 0, b = (Math.random() * NB.length) | 0;
+  return isEn ? NA_EN[a] + NB_EN[b] : NA[a] + NB[b];
 }
 export function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);

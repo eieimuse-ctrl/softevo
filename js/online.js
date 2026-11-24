@@ -10,6 +10,7 @@
    ===================================================================== */
 import { brainLayout, genomeLength, validateBlueprint, OBJECTIVES } from './sim.js';
 import { b64ToF32, f32ToB64, uid } from './store.js';
+import { tr } from './i18n.js';
 
 const DEFAULT_DB = 'https://softevo-leaderboard-default-rtdb.asia-southeast1.firebasedatabase.app';
 const ROOT = 'softevo9/v1';
@@ -34,12 +35,12 @@ async function req(path, { method = 'GET', body, query } = {}) {
     // Content-Type を付けない (= プリフライトなし)。Firebase は本文を JSON として受け取る
     res = await fetch(url, { method, body: body === undefined ? undefined : JSON.stringify(body), cache: 'no-store' });
   } catch (e) {
-    throw new OnlineError('network', 'ネットワークにつながりません');
+    throw new OnlineError('network', tr('ネットワークにつながりません', 'No network connection'));
   }
   if (!res.ok) {
     const t = await res.text().catch(() => '');
-    if (res.status === 401 || res.status === 403 || /permission/i.test(t)) throw new OnlineError('permission', 'データベースへのアクセスが許可されていません');
-    throw new OnlineError('http', `サーバーエラー (${res.status})`);
+    if (res.status === 401 || res.status === 403 || /permission/i.test(t)) throw new OnlineError('permission', tr('データベースへのアクセスが許可されていません', 'Access to the database is not allowed'));
+    throw new OnlineError('http', tr(`サーバーエラー (${res.status})`, `Server error (${res.status})`));
   }
   return res.json();
 }
@@ -89,7 +90,7 @@ export function checkFighter(x) {
   const want = genomeLength(brainLayout(bp, { hidden: x.hidden, hidden2: x.hidden2 || 0 }).sizes);
   if (g.length !== want || !g.every(Number.isFinite)) return null;
   return {
-    name: cleanText(x.name, 24) || '名無し', owner: cleanText(x.owner, 16) || '名無し', ownerId: cleanText(x.ownerId, 40),
+    name: cleanText(x.name, 24) || tr('名無し', 'Nameless'), owner: cleanText(x.owner, 16) || tr('名無し', 'Anonymous'), ownerId: cleanText(x.ownerId, 40),
     bp, hidden: x.hidden, hidden2: x.hidden2 || 0, obj, g, gen: Number.isInteger(x.gen) ? x.gen : null,
   };
 }
@@ -119,7 +120,7 @@ export async function fetchAll() {
 /** 生物を公開する。f: { name, bp, hidden, hidden2, obj, g(Float32Array), gen } */
 export async function publish(f, mode, msg) {
   const p = profile();
-  const body = { v: 1, ...pack(f), mode, msg: cleanText(msg, 80), owner: p.name || '名無し', ownerId: p.id, created: Date.now() };
+  const body = { v: 1, ...pack(f), mode, msg: cleanText(msg, 80), owner: p.name || '', ownerId: p.id, created: Date.now() };
   const r = await req('creatures', { method: 'POST', body });
   return r && r.name;
 }

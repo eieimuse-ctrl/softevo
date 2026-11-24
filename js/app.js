@@ -15,6 +15,7 @@ import { DOJO } from './dojo.js';
 import { randomBody } from './randbody.js';
 import * as store from './store.js';
 import { $, $$, el, toast, confirmDialog, infoDialog, askText, fitCanvas, clamp, muscleColor, PAL } from './ui.js';
+import { tr, isEn, LANG, setLang, applyStaticText, genLabel } from './i18n.js';
 
 // ════════════════════════════════════════════════════════════
 //  画面切り替え
@@ -44,15 +45,15 @@ function renderHome() {
       cv,
       el('div', { class: 'run-info' },
         el('h3', {}, meta.name),
-        el('p', {}, `第${meta.gen}世代 · ${TERRAINS[meta.terrain]?.icon || ''} ${OBJECTIVES[meta.objective]?.name || ''}`),
+        el('p', {}, `${genLabel(meta.gen)} · ${TERRAINS[meta.terrain]?.icon || ''} ${OBJECTIVES[meta.objective]?.name || ''}`),
         el('p', { class: 'run-best' }, meta.best != null ? `🏆 ${formatFitness(meta.best, meta.objective)}` : '—'),
         el('p', { class: 'run-date' }, new Date(meta.updated).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }))),
       el('div', { class: 'run-actions' },
-        el('button', { class: 'btn primary', onclick: () => resumeRun(meta.id) }, '▶ 続きから'),
-        el('button', { class: 'btn ghost', title: 'この体をもとに新しく設計', onclick: () => editFrom(meta.id) }, '✎ 体を編集'),
-        el('button', { class: 'btn ghost icon', title: 'ファイルに書き出し', onclick: () => exportRun(meta.id) }, '⤓'),
-        el('button', { class: 'btn ghost icon danger-text', title: '削除', onclick: async () => {
-          if (await confirmDialog('削除しますか？', `「${meta.name}」の進化の記録をすべて削除します。元に戻せません。`, '削除する', true)) { store.deleteRun(meta.id); renderHome(); }
+        el('button', { class: 'btn primary', onclick: () => resumeRun(meta.id) }, tr('▶ 続きから', '▶ Continue')),
+        el('button', { class: 'btn ghost', title: tr('この体をもとに新しく設計', 'Design a new body based on this one'), onclick: () => editFrom(meta.id) }, tr('✎ 体を編集', '✎ Edit body')),
+        el('button', { class: 'btn ghost icon', title: tr('ファイルに書き出し', 'Export to file'), onclick: () => exportRun(meta.id) }, '⤓'),
+        el('button', { class: 'btn ghost icon danger-text', title: tr('削除', 'Delete'), onclick: async () => {
+          if (await confirmDialog(tr('削除しますか？', 'Delete?'), tr(`「${meta.name}」の進化の記録をすべて削除します。元に戻せません。`, `This deletes the whole evolution record of "${meta.name}". It can't be undone.`), tr('削除する', 'Delete'), true)) { store.deleteRun(meta.id); renderHome(); }
         } }, '🗑')));
     list.append(card);
     const data = store.loadRun(meta.id);
@@ -62,8 +63,8 @@ function renderHome() {
 
 function editFrom(id) {
   const d = store.loadRun(id);
-  if (!d) return toast('読み込めませんでした');
-  openBuilder(d.blueprint, d.name + '・改', d.settings);
+  if (!d) return toast(tr('読み込めませんでした', "Couldn't load it"));
+  openBuilder(d.blueprint, d.name + tr('・改', ' II'), d.settings);
 }
 
 function exportRun(id) {
@@ -74,15 +75,15 @@ function exportRun(id) {
 async function importRun() {
   try {
     const d = await store.pickJSONFile();
-    if (!d || !d.blueprint || !(d.softevo || d.softevo9 || d.softevo8)) throw new Error('形式が違います');
+    if (!d || !d.blueprint || !(d.softevo || d.softevo9 || d.softevo8)) throw new Error(tr('形式が違います', 'Wrong file format'));
     // softevo8 で対戦の特訓をした記録は、対戦がないので読み込めない
-    if (d.battle || !OBJECTIVES[d.settings && d.settings.objective]) throw new Error('すもう・つなひきの特訓の記録は SoftEvo では使えません');
+    if (d.battle || !OBJECTIVES[d.settings && d.settings.objective]) throw new Error(tr('すもう・つなひきの特訓の記録は SoftEvo では使えません', 'Sumo / tug-of-war training files are not supported in Softevo'));
     d.id = store.uid();
     delete d.softevo; delete d.softevo9; delete d.softevo8;
     store.saveRun(d, metaOf(d));
-    toast(`「${d.name}」を読み込みました`);
+    toast(tr(`「${d.name}」を読み込みました`, `Loaded "${d.name}"`));
     renderHome();
-  } catch (e) { if (e.message !== 'no file') toast('読み込みに失敗しました: ' + e.message); }
+  } catch (e) { if (e.message !== 'no file') toast(tr('読み込みに失敗しました: ', 'Import failed: ') + e.message); }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -101,10 +102,10 @@ function setHint(msg, warn, ms = 3200) {
 }
 
 const TOOL_HINT = {
-  node: '空いている所をタップでノード追加。ノードはドラッグで移動',
-  bone: 'ノードからノードへドラッグで「骨」(硬い棒)。空白で離すと新ノードごと伸びる',
-  muscle: 'ノードからノードへドラッグで「筋肉」(脳が伸び縮みさせる)。辺をタップで変換',
-  erase: 'ノードや辺をタップして削除',
+  node: tr('空いている所をタップでノード追加。ノードはドラッグで移動', 'Tap empty space to add a node. Drag nodes to move them'),
+  bone: tr('ノードからノードへドラッグで「骨」(硬い棒)。空白で離すと新ノードごと伸びる', 'Drag from node to node for a bone (a stiff rod). Release on empty space to grow a new node'),
+  muscle: tr('ノードからノードへドラッグで「筋肉」(脳が伸び縮みさせる)。辺をタップで変換', 'Drag from node to node for a muscle (the brain makes it stretch and contract). Tap an edge to convert it'),
+  erase: tr('ノードや辺をタップして削除', 'Tap a node or an edge to delete it'),
 };
 
 function updateBuildInfo(bp) {
@@ -112,7 +113,7 @@ function updateBuildInfo(bp) {
   const err = validateBlueprint(bp);
   const L = brainLayout(bp, buildSettings);
   $('#build-stats').innerHTML = `<span>● ${s.nodes}</span><span class="bone">━ ${s.bones}</span><span class="muscle">〰 ${s.muscles}</span>` +
-    (s.muscles ? `<span class="brainsz" title="脳の大きさ">🧠 ${L.sizes.join('→')}</span>` : '');
+    (s.muscles ? `<span class="brainsz" title="${tr('脳の大きさ', 'Brain size')}">🧠 ${L.sizes.join('→')}</span>` : '');
   const btn = $('#btn-evolve');
   btn.disabled = !!err;
   $('#build-error').textContent = err || '';
@@ -133,14 +134,14 @@ function renderBuildSettings() {
   const box = $('#build-settings-body');
   box.innerHTML = '';
   const rows = [
-    ['population', '個体数', 16, 120, 4, v => `${v}体`],
-    ['hidden', '脳: 隠れ層1', 4, 24, 1, v => `${v}個`],
-    ['hidden2', '脳: 隠れ層2', 0, 16, 1, v => v ? `${v}個` : 'なし'],
-    ['evalSeconds', '評価時間', 5, 30, 1, v => `${v}秒`],
+    ['population', tr('個体数', 'Population'), 16, 120, 4, v => tr(`${v}体`, `${v}`)],
+    ['hidden', tr('脳: 隠れ層1', 'Brain: hidden layer 1'), 4, 24, 1, v => tr(`${v}個`, `${v}`)],
+    ['hidden2', tr('脳: 隠れ層2', 'Brain: hidden layer 2'), 0, 16, 1, v => v ? tr(`${v}個`, `${v}`) : tr('なし', 'none')],
+    ['evalSeconds', tr('評価時間', 'Trial time'), 5, 30, 1, v => tr(`${v}秒`, `${v} s`)],
   ];
   for (const [key, label, min, max, step, fmt] of rows) box.append(sliderRow(label, buildSettings[key], min, max, step, fmt, v => { buildSettings[key] = v; updateBuildInfo(builder.bp); }));
-  box.append(choiceRow('地形', TERRAINS, buildSettings.terrain, v => { buildSettings.terrain = v; }));
-  box.append(choiceRow('目標', OBJECTIVES, buildSettings.objective, v => { buildSettings.objective = v; }));
+  box.append(choiceRow(tr('地形', 'Terrain'), TERRAINS, buildSettings.terrain, v => { buildSettings.terrain = v; }));
+  box.append(choiceRow(tr('目標', 'Goal'), OBJECTIVES, buildSettings.objective, v => { buildSettings.objective = v; }));
 }
 
 function sliderRow(label, value, min, max, step, fmt, onInput) {
@@ -166,13 +167,13 @@ function initBuilderUI() {
     builder.tool = b.dataset.tool; builder.pending = -1;
     setHint(TOOL_HINT[builder.tool]);
   }));
-  $('#btn-mirror').addEventListener('click', e => { builder.mirror = !builder.mirror; e.currentTarget.classList.toggle('active', builder.mirror); setHint(builder.mirror ? '左右対称モード: 中心線をはさんで自動でコピーします' : '左右対称モード OFF'); });
+  $('#btn-mirror').addEventListener('click', e => { builder.mirror = !builder.mirror; e.currentTarget.classList.toggle('active', builder.mirror); setHint(builder.mirror ? tr('左右対称モード: 中心線をはさんで自動でコピーします', 'Mirror mode: everything is copied across the center line') : tr('左右対称モード OFF', 'Mirror mode OFF')); });
   $('#btn-undo').addEventListener('click', () => builder.undo());
   $('#btn-redo').addEventListener('click', () => builder.redo());
   $('#btn-fit').addEventListener('click', () => builder.fit());
-  $('#btn-clear').addEventListener('click', async () => { if (!builder.bp.nodes.length || await confirmDialog('全部消しますか？', '設計中の体をすべて消去します（元に戻すで復元できます）', '消去')) builder.clear(); });
+  $('#btn-clear').addEventListener('click', async () => { if (!builder.bp.nodes.length || await confirmDialog(tr('全部消しますか？', 'Clear everything?'), tr('設計中の体をすべて消去します（元に戻すで復元できます）', 'This clears the whole body (you can bring it back with Undo)'), tr('消去', 'Clear'))) builder.clear(); });
   $('#build-home').addEventListener('click', () => show('home'));
-  $('#btn-preview').addEventListener('click', () => { if (builder.preview) builder.stopPreview(); else if (builder.startPreview(buildSettings)) setHint('ランダムな脳で動かしています。形が崩れないか確認しよう'); });
+  $('#btn-preview').addEventListener('click', () => { if (builder.preview) builder.stopPreview(); else if (builder.startPreview(buildSettings)) setHint(tr('ランダムな脳で動かしています。形が崩れないか確認しよう', 'Running with a random brain. Check that the shape holds together')); });
   $('#btn-evolve').addEventListener('click', () => {
     const err = validateBlueprint(builder.bp);
     if (err) return setHint(err, true);
@@ -181,9 +182,9 @@ function initBuilderUI() {
   });
   const pr = $('#presets');
   // おまかせ: 押すたびに別の体
-  pr.append(el('button', { class: 'chip-btn dice', onclick: () => { builder.load(randomBody(), true); setHint('🎲 おまかせの体をつくりました。押すたびに別の体になります'); } }, '🎲 おまかせ'));
+  pr.append(el('button', { class: 'chip-btn dice', onclick: () => { builder.load(randomBody(), true); setHint(tr('🎲 おまかせの体をつくりました。押すたびに別の体になります', '🎲 Here is a random body. Tap again for a different one')); } }, tr('🎲 おまかせ', '🎲 Random')));
   for (const [k, p] of Object.entries(PRESETS)) {
-    pr.append(el('button', { class: 'chip-btn', onclick: () => { builder.load(p.bp, true); setHint(`プリセット「${p.name}」を読み込みました。自由に改造できます`); } }, `${p.icon} ${p.name}`));
+    pr.append(el('button', { class: 'chip-btn', onclick: () => { builder.load(p.bp, true); setHint(tr(`プリセット「${p.name}」を読み込みました。自由に改造できます`, `Loaded the "${p.name}" preset. Modify it freely`)); } }, `${p.icon} ${p.name}`));
   }
   window.addEventListener('keydown', e => {
     if (screen !== 'build' || e.target.tagName === 'INPUT') return;
@@ -262,12 +263,12 @@ function saveCurrent(silent) {
   const d = serialize(lab.run);
   const ok = store.saveRun(d, metaOf(d));
   lab.lastSaveGen = d.gen;
-  if (!silent) toast(ok ? '💾 保存しました' : '保存できませんでした (容量不足)');
+  if (!silent) toast(ok ? tr('💾 保存しました', '💾 Saved') : tr('保存できませんでした (容量不足)', "Couldn't save (storage is full)"));
 }
 
 function resumeRun(id) {
   const d = store.loadRun(id);
-  if (!d) return toast('読み込めませんでした');
+  if (!d) return toast(tr('読み込めませんでした', "Couldn't load it"));
   startLab(deserialize(d), true);
 }
 
@@ -297,7 +298,7 @@ const cladeChart = new CladeChart($('#clades'), {
   onPick: id => {
     const c = lab.run.clades[id]; if (!c) return;
     const count = lab.run.cladeHist.length ? (lab.run.cladeHist[lab.run.cladeHist.length - 1].c[id] || 0) : 0;
-    toast(`系統 ${c.label} — 第${c.born}世代に誕生${c.parent != null && lab.run.clades[c.parent] ? ` (${lab.run.clades[c.parent].label} から分岐)` : ''} · 現在 ${count}体`, 3500);
+    toast(tr(`系統 ${c.label} — 第${c.born}世代に誕生${c.parent != null && lab.run.clades[c.parent] ? ` (${lab.run.clades[c.parent].label} から分岐)` : ''} · 現在 ${count}体`, `Lineage ${c.label} — born in gen ${c.born}${c.parent != null && lab.run.clades[c.parent] ? ` (branched from ${lab.run.clades[c.parent].label})` : ''} · ${count} alive now`), 3500);
   },
 });
 
@@ -318,12 +319,12 @@ function startLab(run, resumed = false) {
   renderEnvPane();
   Object.keys(lab.dirty).forEach(k => { lab.dirty[k] = true; });
 
-  if (!resumed) addJournal(0, '🥚', `「${run.name}」誕生。ランダムな脳で進化が始まる`, true, 'start');
+  if (!resumed) addJournal(0, '🥚', [`「${run.name}」誕生。ランダムな脳で進化が始まる`, `"${run.name}" is born. Evolution starts from a random brain`], true, 'start');
 
   const w = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
   lab.worker = w;
   w.onmessage = ev => { if (ev.data.type === 'gen') onGen(ev.data.s); };
-  w.onerror = e => { console.error(e); toast('進化エンジンでエラーが発生しました'); };
+  w.onerror = e => { console.error(e); toast(tr('進化エンジンでエラーが発生しました', 'The evolution engine hit an error')); };
   const last = run.history[run.history.length - 1];
   const lastWithG = [...run.history].reverse().find(e => e.g);
   const opts = { seed: (Math.random() * 2 ** 31) | 0 };
@@ -335,7 +336,7 @@ function startLab(run, resumed = false) {
     opts.cladeSeq = ids.length ? Math.max(...ids) + 1 : 0;
     const c = run.clades[last.clade];
     if (c) opts.clade = c;
-    addJournal(last.gen + 1, '⏯', '保存した続きから進化を再開', false, 'resume');
+    addJournal(last.gen + 1, '⏯', ['保存した続きから進化を再開', 'Resumed evolution from the saved point'], false, 'resume');
   }
   w.postMessage({ type: 'init', blueprint: run.blueprint, settings: run.settings, opts });
   setMode(lab.mode);
@@ -349,7 +350,7 @@ function setMode(mode) {
   if (mode !== 'pause') lab.lastRunMode = mode;
   $$('#evo-mode button').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
   lab.worker && lab.worker.postMessage({ type: 'mode', mode });
-  $('#evo-state').textContent = { pause: '一時停止中', watch: '観察モード: 1世代ずつ再生と同期', fast: '高速モード: 裏で全力で進化中' }[mode];
+  $('#evo-state').textContent = { pause: tr('一時停止中', 'Paused'), watch: tr('観察モード: 1世代ずつ再生と同期', 'Watch mode: one generation per replay'), fast: tr('高速モード: 裏で全力で進化中', 'Fast mode: evolving at full speed in the background') }[mode];
 }
 
 function onGen(s) {
@@ -376,8 +377,9 @@ function onGen(s) {
     run.envChanges.push({ gen: s.gen, env: s.env });
     const env = s.env;
     const T = TERRAINS[env.terrain], O = OBJECTIVES[env.objective];
-    const desc = `${T.icon}${T.name} / ${O.name} / 重力${env.gravity.toFixed(1)}G / 摩擦${env.friction.toFixed(2)} / ${env.evalSeconds}秒`;
-    addJournal(s.gen, '🌍', `環境が変わった: ${desc}。ここから新たな適応が始まる`, true, 'env');
+    const dJa = `${T.icon}${T.name} / ${O.name} / 重力${env.gravity.toFixed(1)}G / 摩擦${env.friction.toFixed(2)} / ${env.evalSeconds}秒`;
+    const dEn = `${T.icon}${T.name} / ${O.name} / gravity ${env.gravity.toFixed(1)}G / friction ${env.friction.toFixed(2)} / ${env.evalSeconds} s`;
+    addJournal(s.gen, '🌍', [`環境が変わった: ${dJa}。ここから新たな適応が始まる`, `The world changed: ${dEn}. A new adaptation begins`], true, 'env');
   }
 
   // ── 記録と物語 ──
@@ -388,9 +390,9 @@ function onGen(s) {
     run.best = { gen: s.gen, fitness: s.best, dist: s.champ.distance, g: s.champ.genome };
     if (old && s.record) {
       const gain = s.best - old.fitness;
-      if (gain > Math.max(30, Math.abs(old.fitness) * 0.25)) addJournal(s.gen, '🚀', `大躍進！ 記録が ${formatFitness(old.fitness, obj)} → ${formatFitness(s.best, obj)} に`, true, 'leap');
+      if (gain > Math.max(30, Math.abs(old.fitness) * 0.25)) addJournal(s.gen, '🚀', [`大躍進！ 記録が ${formatFitness(old.fitness, obj)} → ${formatFitness(s.best, obj)} に`, `Big leap! Record ${formatFitness(old.fitness, obj)} → ${formatFitness(s.best, obj)}`], true, 'leap');
       if (run.lastRecordGait && s.gen - run.flags.lastGaitGen > 10 && gaitDistance(s.champ.gait, run.lastRecordGait) > 0.22) {
-        addJournal(s.gen, '🎼', '新しい動き方を発見！ 筋肉の使い方のパターンががらりと変わった', true, 'gait');
+        addJournal(s.gen, '🎼', ['新しい動き方を発見！ 筋肉の使い方のパターンががらりと変わった', 'A new way to move! The muscle pattern changed completely'], true, 'gait');
         run.flags.lastGaitGen = s.gen;
       }
     }
@@ -398,17 +400,17 @@ function onGen(s) {
     run.flags.stall = false;
     checkMilestones(s.gen, s.best, obj);
   }
-  if (s.newClade) addJournal(s.gen, '🌿', `新系統「${s.newClade.label}」誕生 — 記録を大きく塗り替えた個体が祖となる`, false, 'clade');
+  if (s.newClade) addJournal(s.gen, '🌿', [`新系統「${s.newClade.label}」誕生 — 記録を大きく塗り替えた個体が祖となる`, `New lineage "${s.newClade.label}" — founded by a big record-breaker`], false, 'clade');
   const total = Object.values(s.cladeCounts).reduce((a, b) => a + b, 0);
   for (const [id, n] of Object.entries(s.cladeCounts)) {
     if (n / total >= 0.8 && !run.flags.sweeps[id] && s.gen > 0 && run.clades[id] && run.clades[id].born > 0) {
       run.flags.sweeps[id] = true;
-      addJournal(s.gen, '👑', `系統「${run.clades[id].label}」が集団の${Math.round(n / total * 100)}%を占めた (${s.gen - run.clades[id].born}世代で制覇)`, false, 'sweep');
+      addJournal(s.gen, '👑', [`系統「${run.clades[id].label}」が集団の${Math.round(n / total * 100)}%を占めた (${s.gen - run.clades[id].born}世代で制覇)`, `Lineage "${run.clades[id].label}" now makes up ${Math.round(n / total * 100)}% of the population (took ${s.gen - run.clades[id].born} gens)`], false, 'sweep');
     }
   }
   if (s.boost > 1.01 && !run.flags.stall) {
     run.flags.stall = true;
-    addJournal(s.gen, '😴', `${s.stall}世代のあいだ記録が停滞。変異を強めて打開を図る`, false, 'stall');
+    addJournal(s.gen, '😴', [`${s.stall}世代のあいだ記録が停滞。変異を強めて打開を図る`, `No new record for ${s.stall} gens. Turning up mutation to break out`], false, 'stall');
   }
 
   Object.keys(lab.dirty).forEach(k => { lab.dirty[k] = true; });
@@ -425,8 +427,8 @@ function checkMilestones(gen, best, obj) {
     const key = `${obj}:${t}`;
     if (best >= t && !f.milestones.includes(key)) {
       f.milestones.push(key);
-      if (t === th[0] && obj !== 'jump') addJournal(gen, '👣', `はじめて意味のある前進 (${unit(t)})`, true, 'first');
-      else addJournal(gen, '🏁', `${unit(t)} の壁を突破`, true, 'milestone');
+      if (t === th[0] && obj !== 'jump') addJournal(gen, '👣', [`はじめて意味のある前進 (${unit(t)})`, `First real progress (${unit(t)})`], true, 'first');
+      else addJournal(gen, '🏁', [`${unit(t)} の壁を突破`, `Broke the ${unit(t)} barrier`], true, 'milestone');
     }
   }
 }
@@ -439,11 +441,15 @@ function prune(run) {
   const k = n - 25; if (k >= 0) H[k].top = null;
 }
 
+// 物語は日本語と英語の両方を保存しておく (あとで言語を切り替えても読める)
 function addJournal(gen, icon, text, major, type) {
-  lab.run.journal.push({ gen, icon, text, major, type, t: Date.now() });
+  const [ja, en] = Array.isArray(text) ? text : [text, text];
+  const j = { gen, icon, text: ja, en, major, type, t: Date.now() };
+  lab.run.journal.push(j);
   lab.dirty.journal = true;
-  if (screen === 'lab' && type !== 'start' && type !== 'resume') flashEvent(icon, text);
+  if (screen === 'lab' && type !== 'start' && type !== 'resume') flashEvent(icon, journalText(j));
 }
+const journalText = j => (isEn && j.en ? j.en : j.text);
 
 function flashEvent(icon, text) {
   const box = $('#event-feed');
@@ -466,7 +472,7 @@ function nearestWithGenome(gen) {
 function recordFlag(env) {
   const b = lab.run.best;
   if (!b || env.objective === 'jump' || b.dist == null || b.dist < 30) return null;
-  return { x: b.dist, label: `最高記録 ${(b.dist / 100).toFixed(2)}m (第${b.gen}世代)` };
+  return { x: b.dist, label: tr(`最高記録 ${(b.dist / 100).toFixed(2)}m (第${b.gen}世代)`, `Best ${(b.dist / 100).toFixed(2)}m (gen ${b.gen})`) };
 }
 
 function playGen(e) {
@@ -485,7 +491,7 @@ function playGen(e) {
 function playParade() {
   const run = lab.run, H = run.history;
   const cands = H.filter(e => e.g);
-  if (cands.length < 2) { toast('パレードにはもう少し世代が必要です'); setView('live'); return; }
+  if (cands.length < 2) { toast(tr('パレードにはもう少し世代が必要です', 'A parade needs a few more generations')); setView('live'); return; }
   // 節目: 最初、物語に残った世代、最新 から最大5つ
   const js = new Set(run.journal.filter(j => j.major).map(j => j.gen));
   let picks = [cands[0]];
@@ -501,7 +507,7 @@ function playParade() {
   theater.play({
     kind: 'lanes', map: true,
     lanes: picks.map(p => ({
-      gen: p.gen, genome: p.g, env, label: `第${p.gen}世代`, hue: run.clades[p.clade] ? run.clades[p.clade].hue : 200,
+      gen: p.gen, genome: p.g, env, label: genLabel(p.gen), hue: run.clades[p.clade] ? run.clades[p.clade].hue : 200,
     })),
   });
   lab.shown = picks[picks.length - 1];
@@ -523,7 +529,7 @@ function onReplayFinish() {
 
 function showResult(waiting) {
   const box = $('#th-result');
-  box.innerHTML = waiting ? '次の世代を計算中…' : '';
+  box.innerHTML = waiting ? tr('次の世代を計算中…', 'Computing the next generation…') : '';
   box.classList.toggle('show', !!waiting);
 }
 
@@ -552,17 +558,17 @@ function updateCaption() {
   const e = lab.shown, run = lab.run;
   if (!e) return;
   let title;
-  if (lab.view === 'parade') title = '進化のパレード — 節目の世代が同時に走る';
-  else title = `第${e.gen}世代のチャンピオン${lab.view === 'pinned' ? ' (選択中)' : ''}`;
+  if (lab.view === 'parade') title = tr('進化のパレード — 節目の世代が同時に走る', 'Evolution parade — milestone generations run together');
+  else title = tr(`第${e.gen}世代のチャンピオン${lab.view === 'pinned' ? ' (選択中)' : ''}`, `Gen ${e.gen} champion${lab.view === 'pinned' ? ' (picked)' : ''}`);
   $('#th-title').textContent = title;
   const c = run.clades[e.clade];
   const chip = $('#th-chip');
   if (c && lab.view !== 'parade') {
-    chip.textContent = `系統 ${c.label}`;
+    chip.textContent = tr(`系統 ${c.label}`, `Lineage ${c.label}`);
     chip.style.setProperty('--h', c.hue);
     chip.classList.remove('hidden');
   } else chip.classList.add('hidden');
-  const age = e.born != null && lab.view !== 'parade' ? (e.born === e.gen ? '今世代に誕生' : `第${e.born}世代生まれ・${e.gen - e.born}世代生存`) : '';
+  const age = e.born != null && lab.view !== 'parade' ? (e.born === e.gen ? tr('今世代に誕生', 'Born this generation') : tr(`第${e.born}世代生まれ・${e.gen - e.born}世代生存`, `Born in gen ${e.born} · survived ${e.gen - e.born} gens`)) : '';
   $('#th-sub').textContent = age;
   updateLatestBtn();
 }
@@ -572,23 +578,23 @@ function updateLatestBtn() {
   const latest = H[H.length - 1];
   const behind = latest && lab.shown && latest.gen - lab.shown.gen;
   btn.classList.toggle('hidden', !(behind > 0) || lab.view === 'parade');
-  if (behind > 0) btn.textContent = lab.view === 'live' ? `⏭ 最新の第${latest.gen}世代を見る` : `⏭ 最新 (第${latest.gen}世代) に戻る`;
+  if (behind > 0) btn.textContent = lab.view === 'live' ? tr(`⏭ 最新の第${latest.gen}世代を見る`, `⏭ Watch the latest, gen ${latest.gen}`) : tr(`⏭ 最新 (第${latest.gen}世代) に戻る`, `⏭ Back to the latest (gen ${latest.gen})`);
 }
 
 function updateBrainNote() {
   const e = lab.shown; if (!e) return;
   const L = lab.run.layout;
   let syn = 0; for (let l = 1; l < L.sizes.length; l++) syn += L.sizes[l - 1] * L.sizes[l];
-  $('#brain-sub').textContent = `ニューロン ${L.sizes.reduce((a, b) => a + b, 0)} · シナプス ${syn} · リズム ${rhythmHz(e.g).toFixed(2)}Hz`;
+  $('#brain-sub').textContent = tr(`ニューロン ${L.sizes.reduce((a, b) => a + b, 0)} · シナプス ${syn} · リズム ${rhythmHz(e.g).toFixed(2)}Hz`, `${L.sizes.reduce((a, b) => a + b, 0)} neurons · ${syn} synapses · rhythm ${rhythmHz(e.g).toFixed(2)}Hz`);
   const note = $('#brain-note');
   if (brainView.mode === 'mutation') {
     const st = brainView.mutationStats();
-    note.innerHTML = st ? (st.n ? `<b style="color:#ff5fd2">親から ${st.n} 箇所</b>の遺伝子が変化 (変異+交叉, 平均 ±${st.mean.toFixed(2)})。<span style="color:#ff5fd2">ピンク</span>=強まった / <span style="color:#b47bff">紫</span>=弱まった` : '親と遺伝子は同一 (交叉のみ)')
-      : 'この個体は前世代から<b>そのまま生き残った</b>エリートです。変異はありません。';
+    note.innerHTML = st ? (st.n ? tr(`<b style="color:#ff5fd2">親から ${st.n} 箇所</b>の遺伝子が変化 (変異+交叉, 平均 ±${st.mean.toFixed(2)})。<span style="color:#ff5fd2">ピンク</span>=強まった / <span style="color:#b47bff">紫</span>=弱まった`, `<b style="color:#ff5fd2">${st.n} genes changed</b> from the parent (mutation + crossover, avg ±${st.mean.toFixed(2)}). <span style="color:#ff5fd2">Pink</span> = stronger / <span style="color:#b47bff">purple</span> = weaker`) : tr('親と遺伝子は同一 (交叉のみ)', 'Same genes as the parent (crossover only)'))
+      : tr('この個体は前世代から<b>そのまま生き残った</b>エリートです。変異はありません。', 'This one is an elite that <b>survived unchanged</b> from the previous generation. No mutation.');
   } else if (brainView.mode === 'weights') {
-    note.innerHTML = '進化で獲得した結合の強さ。<span class="pos">橙</span>=興奮性 / <span class="neg">青</span>=抑制性。太いほど強い結合';
+    note.innerHTML = tr('進化で獲得した結合の強さ。<span class="pos">橙</span>=興奮性 / <span class="neg">青</span>=抑制性。太いほど強い結合', 'Connection strengths found by evolution. <span class="pos">Orange</span> = excitatory / <span class="neg">blue</span> = inhibitory. Thicker = stronger');
   } else {
-    note.innerHTML = 'いま流れている信号 (重み×活性)。光の粒は強い信号。ニューロンや体の筋肉を<b>タップ</b>すると対応関係が見えます';
+    note.innerHTML = tr('いま流れている信号 (重み×活性)。光の粒は強い信号。ニューロンや体の筋肉を<b>タップ</b>すると対応関係が見えます', 'Signals flowing right now (weight × activation). Bright dots are strong signals. <b>Tap</b> a neuron or a muscle on the body to see what connects to what');
   }
 }
 
@@ -604,8 +610,8 @@ function onNeuronSelect(n) {
   $('#nc-desc').textContent = d.desc;
   const links = [];
   const fmtL = arr => arr.map(x => `<span class="${x.w >= 0 ? 'pos' : 'neg'}">${x.name} ${x.w >= 0 ? '+' : ''}${x.w.toFixed(2)}</span>`).join(' ');
-  if (d.links.in.length) links.push(`<div><small>主な入力</small> ${fmtL(d.links.in)}</div>`);
-  if (d.links.out.length) links.push(`<div><small>主な出力先</small> ${fmtL(d.links.out)}</div>`);
+  if (d.links.in.length) links.push(`<div><small>${tr('主な入力', 'Main inputs')}</small> ${fmtL(d.links.in)}</div>`);
+  if (d.links.out.length) links.push(`<div><small>${tr('主な出力先', 'Main outputs')}</small> ${fmtL(d.links.out)}</div>`);
   $('#nc-links').innerHTML = links.join('');
   updateKnockUI();
 }
@@ -615,13 +621,13 @@ function updateKnockUI() {
   const btn = $('#nc-knock');
   if (n) {
     const k = theater.knock[n.l][n.i];
-    btn.textContent = k ? '✚ 復活させる' : '🔪 ノックアウト';
+    btn.textContent = k ? tr('✚ 復活させる', '✚ Revive') : tr('🔪 ノックアウト', '🔪 Knock out');
     btn.classList.toggle('active', !!k);
   }
   const cnt = theater.knockCount();
   const badge = $('#knock-badge');
   badge.classList.toggle('hidden', cnt === 0);
-  $('span', badge).textContent = `🔪 手術中: ${cnt}個停止`;
+  $('span', badge).textContent = tr(`🔪 手術中: ${cnt}個停止`, `🔪 Surgery: ${cnt} off`);
 }
 
 function drawSpark() {
@@ -649,21 +655,21 @@ let envTimer = null;
 function renderEnvPane() {
   const run = lab.run, s = run.settings, pane = $('#env-pane');
   pane.innerHTML = '';
-  pane.append(el('p', { class: 'pane-note' }, '環境を変えると、次の世代から新しい条件で評価されます。生物がどう「適応」していくか観察してみよう。'));
-  pane.append(choiceRow('地形', TERRAINS, s.terrain, v => changeEnv({ terrain: v })));
-  pane.append(choiceRow('目標', OBJECTIVES, s.objective, v => changeEnv({ objective: v })));
-  pane.append(sliderRow('重力', s.gravity, 0.2, 2, 0.1, v => `${v.toFixed(1)}G`, v => changeEnv({ gravity: v }, true)));
-  pane.append(sliderRow('地面の摩擦', s.friction, 0.3, 1, 0.05, v => v.toFixed(2), v => changeEnv({ friction: v }, true)));
-  pane.append(sliderRow('評価時間', s.evalSeconds, 5, 30, 1, v => `${v}秒`, v => changeEnv({ evalSeconds: v }, true)));
+  pane.append(el('p', { class: 'pane-note' }, tr('環境を変えると、次の世代から新しい条件で評価されます。生物がどう「適応」していくか観察してみよう。', 'Change the world and the next generations are tested under the new conditions. Watch how the creature adapts.')));
+  pane.append(choiceRow(tr('地形', 'Terrain'), TERRAINS, s.terrain, v => changeEnv({ terrain: v })));
+  pane.append(choiceRow(tr('目標', 'Goal'), OBJECTIVES, s.objective, v => changeEnv({ objective: v })));
+  pane.append(sliderRow(tr('重力', 'Gravity'), s.gravity, 0.2, 2, 0.1, v => `${v.toFixed(1)}G`, v => changeEnv({ gravity: v }, true)));
+  pane.append(sliderRow(tr('地面の摩擦', 'Ground friction'), s.friction, 0.3, 1, 0.05, v => v.toFixed(2), v => changeEnv({ friction: v }, true)));
+  pane.append(sliderRow(tr('評価時間', 'Trial time'), s.evalSeconds, 5, 30, 1, v => tr(`${v}秒`, `${v} s`), v => changeEnv({ evalSeconds: v }, true)));
   appendMutationRows(pane, run);
 }
 
 function appendMutationRows(pane, run) {
   const s = run.settings;
-  pane.append(el('h4', {}, '変異 (即時反映・記録には影響なし)'));
-  pane.append(sliderRow('変異の確率', s.mutationRate, 0.01, 0.3, 0.01, v => `${Math.round(v * 100)}%`, v => { s.mutationRate = v; lab.worker.postMessage({ type: 'env', env: { mutationRate: v } }); }));
-  pane.append(sliderRow('変異の大きさ', s.mutationSize, 0.05, 1, 0.05, v => v.toFixed(2), v => { s.mutationSize = v; lab.worker.postMessage({ type: 'env', env: { mutationSize: v } }); }));
-  pane.append(el('p', { class: 'pane-note dim' }, `個体数 ${s.population}体 / 脳 ${run.layout.sizes.join('→')} (これらは新しい実験で変更できます)`));
+  pane.append(el('h4', {}, tr('変異 (即時反映・記録には影響なし)', 'Mutation (applies now, records unaffected)')));
+  pane.append(sliderRow(tr('変異の確率', 'Mutation rate'), s.mutationRate, 0.01, 0.3, 0.01, v => `${Math.round(v * 100)}%`, v => { s.mutationRate = v; lab.worker.postMessage({ type: 'env', env: { mutationRate: v } }); }));
+  pane.append(sliderRow(tr('変異の大きさ', 'Mutation size'), s.mutationSize, 0.05, 1, 0.05, v => v.toFixed(2), v => { s.mutationSize = v; lab.worker.postMessage({ type: 'env', env: { mutationSize: v } }); }));
+  pane.append(el('p', { class: 'pane-note dim' }, tr(`個体数 ${s.population}体 / 脳 ${run.layout.sizes.join('→')} (これらは新しい実験で変更できます)`, `Population ${s.population} / brain ${run.layout.sizes.join('→')} (change these in a new experiment)`)));
 }
 
 function changeEnv(patch, debounce) {
@@ -679,10 +685,10 @@ function renderJournal() {
   ol.innerHTML = '';
   const items = [...lab.run.journal].reverse();
   for (const j of items) {
-    ol.append(el('li', { class: j.major ? 'major' : '', onclick: () => pinGen(j.gen), title: 'タップでこの世代を再生' },
+    ol.append(el('li', { class: j.major ? 'major' : '', onclick: () => pinGen(j.gen), title: tr('タップでこの世代を再生', 'Tap to replay this generation') },
       el('span', { class: 'j-icon' }, j.icon),
-      el('span', { class: 'j-gen' }, `第${j.gen}世代`),
-      el('span', { class: 'j-text' }, j.text)));
+      el('span', { class: 'j-gen' }, genLabel(j.gen)),
+      el('span', { class: 'j-text' }, journalText(j))));
   }
 }
 
@@ -718,7 +724,7 @@ function initLabUI() {
     const n = brainView.sel; if (!n) return;
     theater.knock[n.l][n.i] ^= 1;
     updateKnockUI();
-    flashEvent('🔪', theater.knock[n.l][n.i] ? 'ニューロンを停止。動きはどう変わる？' : 'ニューロンを復活させた');
+    flashEvent('🔪', theater.knock[n.l][n.i] ? tr('ニューロンを停止。動きはどう変わる？', 'Neuron switched off. How does the movement change?') : tr('ニューロンを復活させた', 'Neuron revived'));
   });
   $('#knock-badge button').addEventListener('click', () => { theater.knock.forEach(k => k.fill(0)); updateKnockUI(); });
   $$('.tabs button').forEach(b => b.addEventListener('click', () => {
@@ -736,10 +742,10 @@ function initLabUI() {
   });
   document.addEventListener('click', () => $('#lab-menu-pop').classList.add('hidden'));
   $('#m-export').addEventListener('click', () => { saveCurrent(true); exportRun(lab.run.id); });
-  $('#m-edit').addEventListener('click', () => { saveCurrent(true); lab.worker.terminate(); lab.worker = null; openBuilder(lab.run.blueprint, lab.run.name + '・改', lab.run.settings); });
+  $('#m-edit').addEventListener('click', () => { saveCurrent(true); lab.worker.terminate(); lab.worker = null; openBuilder(lab.run.blueprint, lab.run.name + tr('・改', ' II'), lab.run.settings); });
   $('#m-help').addEventListener('click', showHelp);
   $('#m-rename').addEventListener('click', async () => {
-    const v = await askText('新しい名前', { value: lab.run.name, placeholder: '16文字まで' });
+    const v = await askText(tr('新しい名前', 'New name'), { value: lab.run.name, placeholder: tr('16文字まで', 'Up to 16 characters') });
     if (v && lab.run) { lab.run.name = v; $('#lab-name').textContent = lab.run.name; saveCurrent(true); }
   });
   window.addEventListener('pagehide', () => { if (screen === 'lab') saveCurrent(true); });
@@ -811,7 +817,7 @@ function frame(t) {
 }
 
 function showHelp() {
-  infoDialog('SoftEvo の遊び方', `
+  infoDialog(tr('SoftEvo の遊び方', 'How to play Softevo'), tr(`
     <ol class="help">
       <li><b>体をつくる</b> — ノード(●)を置き、<span class="bone">骨</span>(硬い棒)と<span class="muscle">筋肉</span>(伸び縮みする)でつなぐ。左右対称モードで簡単に。<b>🎲 おまかせ</b>なら押すたびにちがう体をつくってくれます。</li>
       <li><b>進化スタート</b> — 裏側で何十体もの個体が同時に試され、良い脳を持つ個体の子孫が残っていきます。</li>
@@ -824,7 +830,38 @@ function showHelp() {
       <li><b>🏃 かけっこ</b> — 育てた生物 (好きな世代) や道場の師範を最大6体並べて走らせます。過去の自分とも競えます。「共通の地形」か、それぞれが進化した「故郷」で。</li>
       <li><b>🌐 オンライン</b> — 生物を公開すると、だれでも一緒に走れます。記録は見る人の端末で走らせ直して測るので、ごまかしようがありません。</li>
     </ol>
-    <p class="dim">進化は自動保存されます (25世代ごと・画面を離れた時)。ホームから書き出したファイルは、他の端末で読み込めます。</p>`);
+    <p class="dim">進化は自動保存されます (25世代ごと・画面を離れた時)。ホームから書き出したファイルは、他の端末で読み込めます。言語は ⚙ 設定 で切り替えられます。</p>`, `
+    <ol class="help">
+      <li><b>Build a body</b> — place nodes (●) and connect them with <span class="bone">bones</span> (stiff rods) and <span class="muscle">muscles</span> (they stretch and contract). Mirror mode makes it easy. <b>🎲 Random</b> gives you a new body every tap.</li>
+      <li><b>Start evolving</b> — dozens of individuals are tested at once in the background, and the ones with better brains leave offspring.</li>
+      <li><b>Watch in the theater</b> — each generation's champion is replayed exactly. The faint shapes are its rivals from the same generation (ghosts).</li>
+      <li><b>Read the brain</b> — senses on the left, muscles on the right. Tap a neuron or a muscle on the body to light up what connects to it. Try <b>🔪 Knock out</b> to switch part of the brain off — brain surgery!</li>
+      <li><b>Mutation mode</b> — shows in pink which synapses changed from parent to child.</li>
+      <li>Tap the <b>progress chart</b> to call up any generation. The <b>parade</b> runs milestone generations side by side, so you can see the whole journey at a glance.</li>
+      <li>The <b>gait chart</b> shows the rhythm of muscle contractions and foot contacts like a music score.</li>
+      <li>Change the <b>world</b> mid-run and watch the creature adapt to its new environment.</li>
+      <li><b>🏃 Race</b> — line up to 6 creatures: your own (any generation) or the dojo masters. You can even race your past selves. Run on a shared terrain or each on its own home turf.</li>
+      <li><b>🌐 Online</b> — publish a creature and anyone can race it. Records are re-run on each viewer's device, so nobody can cheat.</li>
+    </ol>
+    <p class="dim">Evolution saves automatically (every 25 generations and when you leave). Files exported from the home screen can be imported on other devices. Switch the language in ⚙ Settings.</p>`));
+}
+
+// 設定: いまは言語だけ (切り替えると読み込み直す)
+function showSettings() {
+  const back = el('div', { class: 'modal-back' });
+  const close = () => back.remove();
+  const seg = el('div', { class: 'seg' });
+  for (const [k, label] of [['en', 'English'], ['ja', '日本語']]) {
+    seg.append(el('button', { class: k === LANG ? 'active' : '', onclick: () => { if (k !== LANG) setLang(k); } }, label));
+  }
+  const box = el('div', { class: 'modal' },
+    el('h3', {}, tr('⚙ 設定', '⚙ Settings')),
+    el('div', { class: 'choice-row' }, el('span', {}, tr('言語 / Language', 'Language / 言語')), seg),
+    el('p', { class: 'dim' }, tr('切り替えると画面を読み込み直します。', 'The app reloads to switch.')),
+    el('div', { class: 'modal-actions' }, el('button', { class: 'btn ghost', onclick: close }, tr('とじる', 'Close'))));
+  back.append(box);
+  back.addEventListener('click', e => { if (e.target === back) close(); });
+  document.body.append(back);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -847,10 +884,13 @@ const lobby = new Lobby({
 });
 
 // キャンバスの文字 (DotGothic16) は字ごとに分かれて届くので、使う字を先に読み込んでおく
+const CANVAS_LATIN = ' !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]_abcdefghijklmnopqrstuvwxyz{|}~—←↑→−⌐▁▶◠⚙⛰➡⤒·×';
 const CANVAS_CHARS = '—←↑→−⌐▁▶◠⚙⛰➡⤒、。「」〜あいかがきくぐけげこさしじすせそただっつてでとどなにのはびへべぼまみむやよらりるれろわをんアイエクグシスズタダットドニネノバビプヘムャュラリロンー一上下世丘並中了代以件伝伸位体作個値傾入全内出列前力動勢化収合同周品図固地大央姿子完容層平度徴必感成振接描新明更最有期本条横歩段決源点特省祖秒移第筋系終組統続縮置肉脳裏要覚触計記設試走足距跡跳躍軌転速進運遺部録長間陵階隠離面骨高（）＋0123456789mcptSTARTm.-+%';
 
 function init() {
-  if (document.fonts && document.fonts.load) document.fonts.load('16px "DotGothic16"', CANVAS_CHARS).catch(() => {});
+  applyStaticText();
+  document.documentElement.classList.remove('i18n-wait');
+  if (document.fonts && document.fonts.load) document.fonts.load('16px "DotGothic16"', isEn ? CANVAS_LATIN : CANVAS_CHARS).catch(() => {});
   initBuilderUI();
   initLabUI();
   $('#btn-arena').addEventListener('click', () => show('arena'));
@@ -858,10 +898,11 @@ function init() {
   $('#btn-new').addEventListener('click', () => openBuilder(null));
   $('#btn-quick').addEventListener('click', () => {
     openBuilder(randomBody(), store.randomName());
-    setHint('🎲 おまかせで体をつくりました。気に入らなければ「おまかせ」をもう一度。このまま「進化スタート」でもOK', false, 6000);
+    setHint(tr('🎲 おまかせで体をつくりました。気に入らなければ「おまかせ」をもう一度。このまま「進化スタート」でもOK', '🎲 Here is a random body. Not your type? Tap "Random" again. Or just hit "Start evolving"'), false, 6000);
   });
   $('#btn-import').addEventListener('click', importRun);
   $('#btn-help').addEventListener('click', showHelp);
+  $('#btn-settings').addEventListener('click', showSettings);
   show('home');
   requestAnimationFrame(frame);
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js').catch(() => {});

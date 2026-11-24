@@ -7,6 +7,8 @@
    ・単位: 1 = 1cm、1ステップ = 1/60 秒、y は上向き。
    ===================================================================== */
 
+import { tr } from './i18n.js';
+
 export const FPS = 60;
 export const NODE_R = 6;
 export const MUSCLE_RANGE = 0.32;      // 筋肉の伸縮幅 (±32%)
@@ -32,20 +34,20 @@ export const DEFAULT_SETTINGS = {
 };
 
 export const TERRAINS = {
-  flat:   { name: '平地', icon: '▁' },
-  hills:  { name: '丘陵', icon: '⛰' },
-  bumps:  { name: 'でこぼこ', icon: '◠' },
-  stairs: { name: '階段', icon: '⌐' },
+  flat:   { name: tr('平地', 'Flat'), icon: '▁' },
+  hills:  { name: tr('丘陵', 'Hills'), icon: '⛰' },
+  bumps:  { name: tr('でこぼこ', 'Bumps'), icon: '◠' },
+  stairs: { name: tr('階段', 'Stairs'), icon: '⌐' },
 };
 
 export const OBJECTIVES = {
-  distance:   { name: '移動距離', icon: '➡', unit: 'm' },
-  efficiency: { name: '省エネ移動', icon: '🍃', unit: 'pt' },
-  jump:       { name: '跳躍の高さ', icon: '⤒', unit: 'cm' },
+  distance:   { name: tr('移動距離', 'Distance'), icon: '➡', unit: 'm' },
+  efficiency: { name: tr('省エネ移動', 'Efficiency'), icon: '🍃', unit: 'pt' },
+  jump:       { name: tr('跳躍の高さ', 'Jump height'), icon: '⤒', unit: 'cm' },
 };
 
 export const ARENA_MODES = {
-  race: { name: 'かけっこ', icon: '🏃', desc: '同じ条件で横一列に並んで走る。体の設計と脳の完成度がそのまま出る。最大6体' },
+  race: { name: tr('かけっこ', 'Race'), icon: '🏃', desc: tr('同じ条件で横一列に並んで走る。体の設計と脳の完成度がそのまま出る。最大6体', 'Line up side by side under the same conditions. Body design and brain show as they are. Up to 6.') },
 };
 export const objectiveInfo = obj => OBJECTIVES[obj] || OBJECTIVES.distance;
 
@@ -92,14 +94,14 @@ export function blueprintStats(bp) {
 
 export function validateBlueprint(bp) {
   const s = blueprintStats(bp);
-  if (s.nodes < 2) return 'ノードを2つ以上置いてください';
-  if (s.muscles < 1) return '筋肉が1本以上必要です（動力源）';
+  if (s.nodes < 2) return tr('ノードを2つ以上置いてください', 'Place at least 2 nodes');
+  if (s.muscles < 1) return tr('筋肉が1本以上必要です（動力源）', 'Add at least 1 muscle (it is the engine)');
   // 連結チェック
   const adj = bp.nodes.map(() => []);
   for (const e of bp.edges) { adj[e.a].push(e.b); adj[e.b].push(e.a); }
   const seen = new Set([0]); const st = [0];
   while (st.length) { const v = st.pop(); for (const w of adj[v]) if (!seen.has(w)) { seen.add(w); st.push(w); } }
-  if (seen.size !== bp.nodes.length) return 'バラバラの部品があります。すべてつなげてください';
+  if (seen.size !== bp.nodes.length) return tr('バラバラの部品があります。すべてつなげてください', 'Some parts are loose. Connect everything into one body');
   return null;
 }
 
@@ -108,18 +110,18 @@ export function brainLayout(bp, settings) {
   const inputs = [];
   let mi = 0;
   bp.edges.forEach((e, ei) => {
-    if (e.type === 'muscle') { inputs.push({ group: 'stretch', label: `筋${mi + 1} 伸び`, kind: 'muscle', idx: mi, edge: ei }); mi++; }
+    if (e.type === 'muscle') { inputs.push({ group: 'stretch', label: tr(`筋${mi + 1} 伸び`, `M${mi + 1} stretch`), kind: 'muscle', idx: mi, edge: ei }); mi++; }
   });
-  bp.nodes.forEach((n, i) => inputs.push({ group: 'touch', label: `点${i + 1} 接地`, kind: 'node', idx: i }));
-  inputs.push({ group: 'body', label: '傾き sin', kind: 'body', idx: 0 });
-  inputs.push({ group: 'body', label: '傾き cos', kind: 'body', idx: 1 });
-  inputs.push({ group: 'body', label: '速度 →', kind: 'body', idx: 2 });
-  inputs.push({ group: 'body', label: '速度 ↑', kind: 'body', idx: 3 });
-  inputs.push({ group: 'clock', label: 'リズム sin', kind: 'clock', idx: 0 });
-  inputs.push({ group: 'clock', label: 'リズム cos', kind: 'clock', idx: 1 });
+  bp.nodes.forEach((n, i) => inputs.push({ group: 'touch', label: tr(`点${i + 1} 接地`, `P${i + 1} touch`), kind: 'node', idx: i }));
+  inputs.push({ group: 'body', label: tr('傾き sin', 'tilt sin'), kind: 'body', idx: 0 });
+  inputs.push({ group: 'body', label: tr('傾き cos', 'tilt cos'), kind: 'body', idx: 1 });
+  inputs.push({ group: 'body', label: tr('速度 →', 'speed →'), kind: 'body', idx: 2 });
+  inputs.push({ group: 'body', label: tr('速度 ↑', 'speed ↑'), kind: 'body', idx: 3 });
+  inputs.push({ group: 'clock', label: tr('リズム sin', 'rhythm sin'), kind: 'clock', idx: 0 });
+  inputs.push({ group: 'clock', label: tr('リズム cos', 'rhythm cos'), kind: 'clock', idx: 1 });
   const outputs = [];
   mi = 0;
-  bp.edges.forEach((e, ei) => { if (e.type === 'muscle') { outputs.push({ label: `筋${mi + 1}`, kind: 'muscle', idx: mi, edge: ei }); mi++; } });
+  bp.edges.forEach((e, ei) => { if (e.type === 'muscle') { outputs.push({ label: tr(`筋${mi + 1}`, `M${mi + 1}`), kind: 'muscle', idx: mi, edge: ei }); mi++; } });
   const sizes = [inputs.length, settings.hidden];
   if (settings.hidden2 > 0) sizes.push(settings.hidden2);
   sizes.push(outputs.length);
@@ -465,19 +467,19 @@ function mk(nodes, bones, muscles) {
 }
 
 export const PRESETS = {
-  inchworm: { name: 'シャクトリ', icon: '🐛', bp: mk(
+  inchworm: { name: tr('シャクトリ', 'Inchworm'), icon: '🐛', bp: mk(
     [[-60, 0], [-30, 22], [0, 30], [30, 22], [60, 0], [-30, 0], [30, 0]],
     [[0, 1], [1, 2], [2, 3], [3, 4], [1, 5], [3, 6], [0, 5], [4, 6]],
     [[5, 6], [0, 2], [2, 4], [5, 2], [6, 2]]) },
-  quad: { name: 'よつあし', icon: '🐕', bp: mk(
+  quad: { name: tr('よつあし', 'Quadruped'), icon: '🐕', bp: mk(
     [[-45, 45], [0, 50], [45, 45], [-55, 0], [-25, 0], [25, 0], [55, 0]],
     [[0, 1], [1, 2], [0, 3], [0, 4], [2, 5], [2, 6]],
     [[3, 4], [5, 6], [1, 4], [1, 5], [1, 3], [1, 6], [0, 2]]) },
-  biped: { name: 'にそく', icon: '🚶', bp: mk(
+  biped: { name: tr('にそく', 'Biped'), icon: '🚶', bp: mk(
     [[0, 90], [0, 62], [-14, 32], [14, 32], [-20, 0], [20, 0]],
     [[0, 1], [1, 2], [1, 3], [2, 4], [3, 5]],
     [[0, 2], [0, 3], [2, 3], [4, 5], [1, 4], [1, 5]]) },
-  snake: { name: 'ヘビ', icon: '🐍', bp: (() => {
+  snake: { name: tr('ヘビ', 'Snake'), icon: '🐍', bp: (() => {
     const nodes = [], bones = [], muscles = [], K = 6;
     for (let i = 0; i < K; i++) { nodes.push([i * 24 - 60, 0]); nodes.push([i * 24 - 48, 18]); }
     for (let i = 0; i < K; i++) {
@@ -487,7 +489,7 @@ export const PRESETS = {
     }
     return mk(nodes, bones, muscles);
   })() },
-  wheel: { name: 'ころころ', icon: '⚙', bp: (() => {
+  wheel: { name: tr('ころころ', 'Roller'), icon: '⚙', bp: (() => {
     const nodes = [[0, 32]], bones = [], muscles = [], K = 7;
     for (let i = 0; i < K; i++) { const a = i / K * Math.PI * 2; nodes.push([Math.round(Math.sin(a) * 30), Math.round(32 + Math.cos(a) * 30)]); }
     for (let i = 0; i < K; i++) { bones.push([1 + i, 1 + (i + 1) % K]); muscles.push([0, 1 + i]); }
