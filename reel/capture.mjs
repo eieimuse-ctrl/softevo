@@ -8,7 +8,8 @@
    書き出すもの (out/ep001/):
      frame_00000.png …  1080×1920 / 30fps の全コマ
      music.wav          曲と効果音 (reel/music.mjs。コマに合わせて作る)
-     ep001.mp4          投稿用 (H.264 + AAC、音量は -14 LUFS にそろえる)。ffmpeg がなければ作らずにコマンドを表示
+     ep001.mp4          投稿用 (1080×1920 H.264 + AAC、音量は -14 LUFS にそろえる)。ffmpeg がなければ作らずにコマンドを表示
+     ep001_1080x1920.zip 人に渡す・評価に出す用 (動画・表紙・投稿文・SPEC.txt)。ZIP の中の動画はアプリに変換されない
      cover.png          表紙 (プロフィールの一覧用)
      caption.txt        投稿文 + ハッシュタグ (英語)
      meta.json          fps・コマ数・長さ
@@ -17,6 +18,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -89,6 +91,21 @@ if (hasFF) {
   const r = spawnSync('ffmpeg', ['-y', '-hide_banner', '-loglevel', 'error', ...videoArgs, '-map', '0:v', '-map', '1:a', '-af', af, ...enc, mp4], { stdio: 'inherit' });
   if (r.status !== 0) { console.error('ffmpeg が失敗しました'); process.exit(1); }
   console.log(`MP4: ${path.relative(process.cwd(), mp4)}  (${(fs.statSync(mp4).size / 1e6).toFixed(1)} MB・元の音量 ${js.input_i} LUFS → -14 LUFS)`);
+  // 仕様の記録と、変換されずに渡せる ZIP (アプリに動画を添付すると 720p などに作り直されることがあるため)
+  const pr = spawnSync('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=codec_name,profile,width,height,r_frame_rate', '-show_entries', 'format=duration,size', '-of', 'default=nw=1', mp4], { encoding: 'utf8' });
+  const sha = createHash('sha256').update(fs.readFileSync(mp4)).digest('hex');
+  fs.writeFileSync(path.join(out, 'SPEC.txt'), [
+    `${name}.mp4`, pr.stdout.trim(), `sha256=${sha}`, '',
+    'この動画は 1080×1920 / H.264 / 30fps です。',
+    'iPhone の写真アプリで動画を開いて (i) を押し、1080×1920 と出れば元のまま。720×1280 などなら途中で変換されています。',
+    'Instagram は「設定 → メディアの画質 → 最高画質でアップロード」をオンにしてから投稿してください。', '',
+  ].join('\n'));
+  if (spawnSync('zip', ['-v']).status === 0) {
+    const zip = path.join(out, `${name}_1080x1920.zip`);
+    if (fs.existsSync(zip)) fs.unlinkSync(zip);
+    spawnSync('zip', ['-0', '-X', '-j', '-q', zip, mp4, path.join(out, 'cover.png'), path.join(out, 'caption.txt'), path.join(out, 'SPEC.txt')]);
+    console.log(`ZIP: ${path.relative(process.cwd(), zip)}  (中の動画は変換されない。sha256 ${sha.slice(0, 12)}…)`);
+  }
 } else {
   console.log(`書き出し完了。MP4 にするには (ffmpeg):\n  ffmpeg ${videoArgs.join(' ')} -af loudnorm=${LN} ${enc.join(' ')} ${path.relative(process.cwd(), mp4)}`);
 }
