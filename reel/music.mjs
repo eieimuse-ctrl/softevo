@@ -192,8 +192,8 @@ const SFX = {
       s += l;
     }
   },
-  goal(t0) { // ゴール: 低い衝撃 + きらきら
-    tone({ t0, len: 0.4, f: 90, f2: 38, glide: 0.4, wave: 'sine', vol: 0.55, a: 0.002, d: 0.4, s: 0, r: 0.05 });
+  goal(t0) { // ゴール: 小さなアクセントだけ (主役は曲のドロップと、拍に合った歩調)
+    tone({ t0, len: 0.3, f: 80, f2: 40, glide: 0.3, wave: 'sine', vol: 0.25, a: 0.002, d: 0.3, s: 0, r: 0.05 });
     ['A5', 'C#6', 'E6', 'A6'].forEach((n, k) => tone({ t0: t0 + Math.round(k * STEP / 2), len: 0.05, f: hz(n), duty: 0.125, vol: 0.06, pan: 0.3, a: 0.001, d: 0.04, s: 0.5, r: 0.04, lp: 9000, send: 0.6 }));
   },
   count(t0) { // カウントアップ (16分で8回) → 2拍後に「チーン」

@@ -1,9 +1,14 @@
 {
  "format": "softevo-reel/2",
  "template": "drop16",
+ "hook": "compare",
+ "creature": {
+  "name": null,
+  "color": "purple"
+ },
  "episode": 1,
  "tag": "#001",
- "seed": 2453695222,
+ "seed": 2942545678,
  "bodySeed": 230732,
  "generations": 300,
  "fps": 30,
@@ -12,6 +17,7 @@
  "frames": 480,
  "at": {
   "hook": 0,
+  "brainOn": 30,
   "m1": 60,
   "m2": 90,
   "almost": 120,
@@ -141,8 +147,41 @@
  },
  "segments": [
   {
-   "id": "hook",
+   "id": "split",
    "from": 0,
+   "to": 30,
+   "genome": "f0",
+   "gen": 0,
+   "map": [
+    [
+     0,
+     0
+    ],
+    [
+     15,
+     0.7
+    ],
+    [
+     60,
+     2.2
+    ]
+   ],
+   "genomeB": "57",
+   "genB": 57,
+   "mapB": [
+    [
+     0,
+     4.446
+    ],
+    [
+     30,
+     5.299
+    ]
+   ]
+  },
+  {
+   "id": "hook",
+   "from": 30,
    "to": 60,
    "genome": "f0",
    "gen": 0,
@@ -271,6 +310,10 @@
    "type": "bonk"
   },
   {
+   "f": 30,
+   "type": "cut"
+  },
+  {
    "f": 60,
    "type": "cut"
   },
@@ -308,6 +351,8 @@
   "goal": "10 m",
   "hookSub": "random brain",
   "hookFail": "CAN'T EVEN STAND",
+  "compareMid": "57 generations later",
+  "prev": null,
   "timeUp": "TIME!",
   "almost": "SO CLOSE...",
   "almostShort": "7 cm short",

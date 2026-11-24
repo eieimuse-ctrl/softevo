@@ -19,6 +19,10 @@
      node reel/make-episode.mjs --ep 2 --seed 777            オーディションの種 (同じ種なら同じ回)
      node reel/make-episode.mjs --ep 1 --body-seed 230732    体を決めて作る
      オプション: --cast 24 (候補の数) --cast-gens 30 --finalists 4 --gens 300 --goal 10 (m) --out path
+       --hook compare|fail|preview   最初の1秒 (上下比較 / 失敗だけ / 成功の先出し)。1回に変えるのは1つまで
+       --color purple                生物の色 (red orange lime teal blue purple pink)。省略時は番号で順番に
+       --name BOB                    この生物の名前 (コメントで決まったら)
+       --prev BOB                    前の回の生物に決まった名前 (この回の途中で発表する)
    ===================================================================== */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -53,7 +57,9 @@ const EVAL = settings.evalSeconds;
 
 // ─── 台本 drop16 のコマ (30fps・120 BPM) ───
 const VFPS = 30, BPM = 120, BEAT = VFPS * 60 / BPM; // 15コマ
-const F = { hook: 0, m1: 60, m2: 90, almost: 120, timeUp: 150, final: 180, slow: 225, drop: 240, goalSub: 300, result: 360, cta: 420, end: 480 };
+const F = { hook: 0, brainOn: 30, m1: 60, m2: 90, almost: 120, timeUp: 150, final: 180, slow: 225, drop: 240, goalSub: 300, result: 360, cta: 420, end: 480 };
+const HOOK = args.hook || 'compare';
+if (!['compare', 'fail', 'preview'].includes(HOOK)) { console.error('--hook は compare / fail / preview'); process.exit(1); }
 
 // ─── 体・進化・測定 ───
 /** 体の種 → 体と進化の種 (同じ種なら同じ体・同じ進化) */
@@ -159,13 +165,14 @@ if (args['body-seed'] != null) {
 // ─── 時間の割り付け: コマ → シミュレーションの秒 ───
 const { G, c, al, m1, m2, fin, fail, layout } = P;
 const r2 = v => Math.round(v * 1000) / 1000;
-// つかみ: 倒れた瞬間 (頭が地面に着く) を 15/30/45 コマ目 (拍の頭) に合わせる
-let hookMap = [[0, 0], [60, 2]], fI = null;
-if (fail.kind === 'fall') {
+// つかみ: 倒れた瞬間 (頭が地面に着く) を拍の頭に合わせる。f0 = 第0世代が動き出すコマ
+function hookMapFrom(f0) {
+  if (fail.kind !== 'fall') return { map: [[f0, 0], [60, r2((60 - f0) / VFPS)]], fI: null };
   const tI = fail.tI / FPS;
   let bestF = null;
-  for (const f of [15, 30, 45]) { const sp = tI / (f / VFPS); if (sp >= 0.6 && sp <= 1.5 && (!bestF || Math.abs(Math.log(sp)) < Math.abs(Math.log(bestF.sp)))) bestF = { f, sp }; }
-  if (bestF) { fI = bestF.f; hookMap = [[0, 0], [fI, r2(tI)], [60, r2(tI + (60 - fI) / VFPS)]]; }
+  for (const f of [15, 30, 45].map(x => x + f0).filter(x => x < 60)) { const sp = tI / ((f - f0) / VFPS); if (sp >= 0.6 && sp <= 1.5 && (!bestF || Math.abs(Math.log(sp)) < Math.abs(Math.log(bestF.sp)))) bestF = { f, sp }; }
+  if (!bestF) return { map: [[f0, 0], [60, r2((60 - f0) / VFPS)]], fI: null };
+  return { map: [[f0, 0], [bestF.f, r2(tI)], [60, r2(tI + (60 - bestF.f) / VFPS)]], fI: bestF.f };
 }
 const endMap = (f0, f1, sp) => [[f0, r2(EVAL - (f1 - f0) / VFPS * sp)], [f1, EVAL]];
 // 最後の挑戦の歩調を曲に合わせる: 体が地面に着く瞬間 (いちばん低くなる時) を拍の頭に。
@@ -205,8 +212,31 @@ const finalMap = lock
   ? [[F.final, r2(lock.tStar - lock.delta - (F.slow - F.final) / VFPS * lock.sA)], [F.slow, r2(lock.tStar - lock.delta)], [F.drop, r2(lock.tStar)], [F.cta, r2(lock.tStar + (F.cta - F.drop) / VFPS * lock.sV)]]
   : [[F.final, r2(c - 2.5)], [F.slow, r2(c - 0.25)], [F.drop, r2(c)], [F.cta, r2(c + 6)]];
 const finalEnd = finalMap[finalMap.length - 1][1];
+// 最終世代が調子よく進んでいる1秒 (着地が拍の頭に来る。上下比較・先出し用)
+const runMap = f0 => {
+  if (!lock) return [[f0, r2(Math.max(1, c - 3))], [f0 + 30, r2(Math.max(1, c - 3) + 1)]];
+  const t0 = lock.tStar - Math.round(3 / lock.P) * lock.P; // ゴールの 3 秒ほど前の着地
+  return [[f0, r2(t0)], [f0 + 30, r2(t0 + lock.sV)]];
+};
+let hookSegs, fI;
+if (HOOK === 'fail') {
+  const h = hookMapFrom(0); fI = h.fI;
+  hookSegs = [{ id: 'hook', from: 0, to: F.m1, genome: 'f0', gen: 0, map: h.map }];
+} else if (HOOK === 'compare') {
+  const h = hookMapFrom(0); fI = h.fI;
+  hookSegs = [
+    { id: 'split', from: 0, to: 30, genome: 'f0', gen: 0, map: h.map, genomeB: String(fin.gen), genB: fin.gen, mapB: runMap(0) },
+    { id: 'hook', from: 30, to: F.m1, genome: 'f0', gen: 0, map: h.map },
+  ];
+} else {
+  const h = hookMapFrom(30); fI = h.fI;
+  hookSegs = [
+    { id: 'preview', from: 0, to: 30, genome: String(fin.gen), gen: fin.gen, map: runMap(0) },
+    { id: 'hook', from: 30, to: F.m1, genome: 'f0', gen: 0, map: h.map },
+  ];
+}
 const segments = [
-  { id: 'hook', from: F.hook, to: F.m1, genome: 'f0', gen: 0, map: hookMap },
+  ...hookSegs,
   { id: 'm1', from: F.m1, to: F.m2, genome: String(m1.gen), gen: m1.gen, map: endMap(F.m1, F.m2, 1.5) },
   { id: 'm2', from: F.m2, to: F.almost, genome: String(m2.gen), gen: m2.gen, map: endMap(F.m2, F.almost, 1.5) },
   { id: 'almost', from: F.almost, to: F.final, genome: String(al.gen), gen: al.gen, map: [...endMap(F.almost, F.timeUp, 1.5), [F.final, EVAL]] },
@@ -217,8 +247,15 @@ const segments = [
 ];
 const events = [];
 if (fI != null) events.push({ f: fI, type: 'bonk' });
-for (const f of [F.m1, F.m2, F.almost, F.final]) events.push({ f, type: 'cut' });
+for (const f of [...(HOOK === 'fail' ? [] : [30]), F.m1, F.m2, F.almost, F.final]) events.push({ f, type: 'cut' });
 events.push({ f: F.timeUp, type: 'fail' }, { f: F.drop, type: 'goal' }, { f: F.result, type: 'count' }, { f: F.cta, type: 'rewind' });
+
+// ─── 生物の色 (筋肉の色・接地の金色とかぶらないもの。番号で順番に) ───
+const HUES = { red: 355, orange: 25, lime: 90, teal: 160, blue: 210, purple: 265, pink: 315 };
+const MUSCLE_ORDER = ['pink', 'lime', 'blue', 'orange', 'teal', 'purple', 'gold', 'red'];
+const used = new Set(MUSCLE_ORDER.slice(0, body.bp.edges.filter(e => e.type === 'muscle').length));
+const free = ['purple', 'red', 'teal', 'orange', 'pink', 'lime', 'blue'].filter(k => !used.has(k));
+const COLOR = args.color && HUES[args.color] != null ? args.color : (free.length ? free : Object.keys(HUES))[(EP - 1) % (free.length || 7)];
 
 // ─── 文字 (英語) ───
 const m = v => `${Math.max(0, v / 100).toFixed(1)} m`;
@@ -230,6 +267,8 @@ const texts = {
   goal: `${G} m`,
   hookSub: 'random brain',
   hookFail: fail.kind === 'fall' ? "CAN'T EVEN STAND" : "CAN'T MOVE",
+  compareMid: `${fin.gen} generations later`,
+  prev: args.prev ? `#${String(EP - 1).padStart(3, '0')} is now ${String(args.prev).toUpperCase()}` : null,
   timeUp: 'TIME!',
   almost: 'SO CLOSE...',
   almostShort: `${gapCm} cm short`,
@@ -255,7 +294,8 @@ const caption = [
 
 const b64 = f => Buffer.from(f.buffer, f.byteOffset, f.byteLength).toString('base64');
 const episode = {
-  format: 'softevo-reel/2', template: 'drop16',
+  format: 'softevo-reel/2', template: 'drop16', hook: HOOK,
+  creature: { name: args.name ? String(args.name).toUpperCase() : null, color: COLOR },
   episode: EP, tag: TAG, seed: SEED, bodySeed: body.seed, generations: GENS,
   fps: VFPS, bpm: BPM, beat: BEAT, frames: F.end, at: F,
   settings, blueprint: body.bp,
