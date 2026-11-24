@@ -24,8 +24,8 @@ const FONT = '"DotGothic16", monospace';
 const LAY = {
   title: 334,                                    // AI LEARNS TO WALK #001
   world: { x: 0, y: 360, w: 1080, h: 660 },      // 世界 (CSS 360×220)。上の 54px は進み具合のバー
-  brain: { x: 42, y: 1056, w: 888, h: 612 },     // 脳 (CSS 296×204)。右はボタンの列を空ける
-  split: { a: 372, b: 948, h: 480, mid: 922 },   // 上下比較の窓 (CSS 360×160 ×2)
+  brain: { x: 42, y: 1056, w: 996, h: 744 },     // 脳 (CSS 332×248)。横いっぱい・下まで
+  split: { b: 1104, h: 540, mid: 1082 },         // 上下比較: 上の窓 = 本編の世界そのもの、下の窓 (CSS 360×180) は脳の所
   safe: { top: 269, bottom: 1248, side: 65 },    // 文字の安全域 (上14%・下35%・左右6%)
 };
 const GX = 66; // 左端の文字 (左右6%)
@@ -134,7 +134,9 @@ const fitZoom = (list, cw, ch, hud) => {
 const ZH = fitZoom([['f0', seg('hook').map]], CW, CH, HUDH);
 const ZM = fitZoom(['m1', 'm2', 'almost', 'final'].map(id => [seg(id).genome, seg(id).map]), CW, CH, HUDH);
 const SPL = seg('split');
-const ZS = SPL ? fitZoom([[SPL.genome, SPL.map], [SPL.genomeB, SPL.mapB]], CW, LAY.split.h / S, 0) : 1;
+const SPLIT_GROUND = 0.72;
+// 下の窓 (最終世代) は上と同じ大きさで描く (立てない体と進む体を同じ縮尺で比べる)。収まらなければ少し小さく
+const ZS = SPL ? Math.min(ZH, fitZoom([[SPL.genomeB, SPL.mapB]], CW, LAY.split.h / S * SPLIT_GROUND / GROUND, 0)) : 1;
 
 // ─── 文字 ───
 function text(str, x, y, size, color, align = 'center') {
@@ -214,10 +216,10 @@ function drawConfetti(ctx, cam, w, h, f) {
   }
   ctx.restore();
 }
-const followCam = (tr, u, zoom, ch) => {
+const followCam = (tr, u, zoom, ch, ground = GROUND) => {
   const cam = new Camera(); cam.zoom = zoom;
   cam.x = tr.camX(u) + 360 * 0.08 / zoom; // 生物は窓の42%に (前の旗が見える)
-  cam.y = groundY(env.terrain, cam.x) + ch * (GROUND - 0.5) / zoom;
+  cam.y = groundY(env.terrain, cam.x) + ch * (ground - 0.5) / zoom;
   return cam;
 };
 
@@ -240,42 +242,11 @@ function shakeAt(f) {
   return Math.round(hit(A.drop, 24, 9) + (BONK ? hit(BONK.f, 12, 6) : 0));
 }
 
-// ─── 上下比較 (最初の1秒): 上に第0世代、下に最終世代、まん中に1行だけ。脳は出さない ───
-async function renderSplit(f, sg) {
-  const panels = [
-    { key: sg.genome, map: sg.map, y: LAY.split.a, label: `GEN ${sg.gen}`, col: PAL.r2 },
-    { key: sg.genomeB, map: sg.mapB, y: LAY.split.b, label: `GEN ${sg.genB}`, col: PAL.g2 },
-  ];
-  const ch = LAY.split.h / S, imgs = [];
-  for (const p of panels) {
-    const tr = trackOf(p.key), u = mapAt(p.map, f).t * FPS, P = tr.pose(u);
-    const cam = followCam(tr, u, ZS, ch);
-    const { ctx, w, h } = fitCanvas(splitCv, { px: 2 });
-    drawWorld(ctx, cam, w, h, env.terrain, { startX: tr.nose0 });
-    ctx.save(); cam.apply(ctx, w, h); drawCreature(ctx, P, { tint: TINT }); ctx.restore();
-    await new Promise(r => setTimeout(r, 0));
-    const c = document.createElement('canvas'); c.width = splitCv.width; c.height = splitCv.height;
-    c.getContext('2d').drawImage(splitCv, 0, 0);
-    imgs.push(c);
-  }
-  background();
-  title();
-  panels.forEach((p, j) => {
-    const sh = j === 0 ? shakeAt(f) : 0;
-    X.fillStyle = PAL.ink; X.fillRect(0, p.y - 12, W, LAY.split.h + 24);
-    X.drawImage(imgs[j], sh, p.y, W, LAY.split.h);
-    X.fillStyle = onBeat(f) ? PAL.n6 : PAL.n4; X.fillRect(0, p.y - 6, W, 6); X.fillRect(0, p.y + LAY.split.h, W, 6);
-    outlined(p.label, GX, p.y + 108, 80, p.col, 'left');
-  });
-  outlined(`↓ ${T.compareMid} ↓`, W / 2, LAY.split.mid, 56, PAL.white);
-}
-
 // ─── 1コマを描く ───
 const morph = new Float32Array(genomes.f0.length);
 async function renderFrame(i) {
   const f = clamp(Math.floor(i), 0, TOTAL - 1);
-  const sg = segAt(f);
-  if (sg.id === 'split') { await renderSplit(f, sg); if (guides && !CAPTURE) drawGuides(); return; }
+  const sg = segAt(f), split = sg.id === 'split';
   const tr = trackOf(sg.genome);
   const { t } = mapAt(sg.map, f), u = t * FPS;
   // 巻き戻しの進み (0 → 1)。画角・脳の重み・世代の数字をこれでそろえる
@@ -285,7 +256,7 @@ async function renderFrame(i) {
   const k = f - sg.from;
 
   // カメラ
-  let zoom = sg.id === 'hook' ? ZH : ZM;
+  let zoom = sg.id === 'hook' || split ? ZH : ZM;
   if (sg.id === 'cta') zoom = ZM + (ZH - ZM) * p;
   const cam = followCam(tr, u, zoom, CH);
   if (sg.id === 'almost' && f >= A.timeUp) { // 時間切れ: すき間に寄る
@@ -307,6 +278,14 @@ async function renderFrame(i) {
     ctx.save(); cam.apply(ctx, w, h); drawCreature(ctx, P, { tint: TINT }); ctx.restore();
     if (sg.id === 'almost' && f >= A.timeUp) drawGap(ctx, cam, w, h, P.nose);
     drawConfetti(ctx, cam, w, h, f);
+  }
+  // 上下比較の下の窓: 最終世代 (同じ縮尺)。上の窓は本編の世界そのものなので、1秒後も生き物の位置が変わらない
+  if (split) {
+    const trB = trackOf(sg.genomeB), uB = mapAt(sg.mapB, f).t * FPS;
+    const camB = followCam(trB, uB, ZS, LAY.split.h / S, SPLIT_GROUND);
+    const { ctx, w, h } = fitCanvas(splitCv, { px: 2 });
+    drawWorld(ctx, camB, w, h, env.terrain, { startX: trB.nose0 });
+    ctx.save(); camB.apply(ctx, w, h); drawCreature(ctx, trB.pose(uB), { tint: TINT }); ctx.restore();
   }
   // 脳 (巻き戻しでは最終世代 → 第0世代のランダムな重みへ戻っていく)。最初の1拍は出さない (1コマ目をすっきり)
   const brainOn = f >= BRAIN_ON;
@@ -333,17 +312,29 @@ async function renderFrame(i) {
     X.fillStyle = PAL.ink; X.fillRect(B.x + B.w + 12, B.y, 12, B.h + 24); X.fillRect(B.x, B.y + B.h + 12, B.w + 24, 12);
     X.drawImage(brainCv, B.x, B.y, B.w, B.h);
   }
-  // カットのちらつき (2コマ)
-  if (sg.from > 0 && sg.id !== 'cta' && k < 2) { X.fillStyle = k === 0 ? CHK_N7 : CHK_N4; X.fillRect(0, R.y, W, R.h); }
+  // 上下比較の下の窓とまん中の1行
+  if (split) {
+    const y = LAY.split.b, hh = LAY.split.h;
+    X.fillStyle = PAL.ink; X.fillRect(0, y - 12, W, hh + 24);
+    X.drawImage(splitCv, 0, y, W, hh);
+    X.fillStyle = beat ? PAL.n6 : PAL.n4; X.fillRect(0, y - 6, W, 6); X.fillRect(0, y + hh, W, 6);
+    outlined(`GEN ${sg.genB}`, GX, y + 108, 80, PAL.g2, 'left');
+    outlined(`↓ ${T.compareMid} ↓`, W / 2, LAY.split.mid, 56, PAL.white);
+  }
+  // カットのちらつき (2コマ)。世界に映る個体が変わる時だけ
+  const prevSeg = segs.find(s => s.to === sg.from);
+  if (sg.from > 0 && sg.id !== 'cta' && k < 2 && !(prevSeg && prevSeg.genome === sg.genome)) { X.fillStyle = k === 0 ? CHK_N7 : CHK_N4; X.fillRect(0, R.y, W, R.h); }
   // スロー: 左右を暗く
   if (f >= A.slow && f < A.drop) { X.fillStyle = CHK_INK; X.fillRect(0, R.y, 150, R.h); X.fillRect(W - 150, R.y, 150, R.h); }
   // ゴールの瞬間: 白く光る
   if (f >= A.drop && f < A.drop + 3) { X.fillStyle = f - A.drop < 2 ? PAL.white : CHK_WHITE; X.fillRect(0, R.y, W, R.h); }
 
   title();
-  hud(f, sg, dist);
-  // 世代 (世界の左上。カットのたびに拍に合わせて飛び出す)
-  if (f < A.result && sg.id !== 'cta') pop(`GEN ${sg.gen}`, GX, R.y + 150, 80, sg.gen === FINAL_GEN ? PAL.g2 : PAL.white, sg.from === 0 ? 9 : k, 'left');
+  if (!split) hud(f, sg, dist); // 最初の1秒 (上下比較) はバーを出さない
+  else { X.fillStyle = PAL.ink; X.fillRect(0, R.y, W, 6); }
+  // 世代 (世界の左上。カットのたびに拍に合わせて飛び出す)。第0世代は赤のまま動かさない
+  const g0 = sg.gen === 0;
+  if (f < A.result && sg.id !== 'cta') pop(`GEN ${sg.gen}`, GX, R.y + 150, 80, g0 ? PAL.r2 : sg.gen === FINAL_GEN ? PAL.g2 : PAL.white, g0 && sg.id !== 'preview' ? 9 : sg.from === 0 ? 9 : k, 'left');
   // 前の回の生物の名前 (コメントで決まった名前を発表)
   if (T.prev && f >= A.m1 && f < A.almost) pop(T.prev, W - GX, R.y + 150, 40, PAL.t3, f - A.m1, 'right');
 
