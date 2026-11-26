@@ -29,7 +29,7 @@ Claude とのファイル受け渡しはすべて GitHub リポジトリ（eieim
 - 型は固定し、変数は1本に1つだけ変える。変数の候補：地形（平地／階段／氷／谷間／坂道）、制約（筋肉の本数、頭の大きさ、脚なし等）、ゴール距離、移動方法の発見（歩行／転がり／…）
 - 毎回「見える変化」を必ず入れる（YouTube の inauthentic content ポリシー対策：テンプレ量産と判定されると収益化対象外になり得る）
 - 特別回は5〜7本に1回まで（全世代パレード、チャンピオン対決、視聴者設計の生物など）。パレードを本編の主構造にしない。使う場合は GOAL 後の2〜3秒の署名シーンとして、チャンピオンだけ色を付ける
-- 投稿パッケージ形式（#001〜#003 と同一）：mp4（1080×1920）、cover.png、caption.txt、SPEC.txt（sha256 付き）。受け渡しは GitHub 経由（置き場所は reel/packages/epNNN/ を既定とする）。チャットに動画を直接送ると 720p に圧縮されるため、原本をチャットで送らない
+- 投稿パッケージ形式（#001〜#003 と同一）：mp4（1080×1920）、cover.png、caption.txt、SPEC.txt（sha256 付き）。受け渡しは GitHub 経由。置き場所は非公開リポジトリ hsgwtest-lgtm/evolab-assets の packages/epNNN/（未公開動画を公開リポジトリに置かないため）。チャットに動画を直接送ると 720p に圧縮されるため、原本をチャットで送らない
 - キャプション形式：物語3行（Gen 0…／ニアミス…／達成…🧬）＋「Random body, random brain. Nobody taught it how — just N tries of evolution.」＋「👇 Name this creature」＋ハッシュタグ #ai #evolution #neuralnetwork #machinelearning #simulation #pixelart
 
 ## 4. 投稿運用
