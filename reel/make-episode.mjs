@@ -23,6 +23,9 @@
        --color purple                生物の色 (red orange lime teal blue purple pink)。省略時は番号で順番に
        --name BOB                    この生物の名前 (コメントで決まったら)
        --prev BOB                    前の回の生物に決まった名前 (この回の途中で発表する)
+       --shape round                 丸い体だけでオーディション (転がる生き物向け)
+       --motion roll                 転がって進む (12秒で2回転以上) 体だけを選ぶ。見出しは AI LEARNS TO ROLL
+       --title "..."                 見出しを変える
    ===================================================================== */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -32,7 +35,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const mod = f => import(pathToFileURL(path.join(here, '..', 'js', f)).href);
 const { Evolver } = await mod('evo.js');
 const { DEFAULT_SETTINGS, brainLayout, Creature, FPS } = await mod('sim.js');
-const { randomBody } = await mod('randbody.js');
+const { randomBody, randomRoundBody } = await mod('randbody.js');
 
 // ─── 引数 ───
 const args = {};
@@ -64,7 +67,20 @@ if (!['compare', 'fail', 'preview'].includes(HOOK)) { console.error('--hook は 
 
 // ─── 体・進化・測定 ───
 /** 体の種 → 体と進化の種 (同じ種なら同じ体・同じ進化) */
-function bodyOf(seed) { const r = rng32(seed); const bp = randomBody(r); return { seed, bp, evoSeed: (r() * 2 ** 31) | 0 }; }
+const SHAPE = args.shape === 'round' ? 'round' : 'any', MOTION = args.motion === 'roll' ? 'roll' : 'any';
+function bodyOf(seed) { const r = rng32(seed); const bp = SHAPE === 'round' ? randomRoundBody(r) : randomBody(r); return { seed, bp, evoSeed: (r() * 2 ** 31) | 0 }; }
+/** 体が何回転したか (12秒)。転がって進むなら数回転 */
+function turnsOf(bp, layout, g, secs = EVAL) {
+  const c = new Creature(bp, layout, g, env);
+  let prev = c.tilt, acc = 0;
+  for (let k = 0; k < secs * FPS; k++) {
+    c.step();
+    let d = c.tilt - prev; prev = c.tilt;
+    if (d > Math.PI) d -= 2 * Math.PI; else if (d < -Math.PI) d += 2 * Math.PI;
+    acc += d;
+  }
+  return Math.abs(acc) / (2 * Math.PI);
+}
 const front = c => { let m = -Infinity; for (let i = 0; i < c.n; i++) if (c.x[i] > m) m = c.x[i]; return m; };
 /** 鼻先の進み (cm) を 1/60 秒ごとに */
 function noseRun(bp, layout, g, secs) {
@@ -125,6 +141,8 @@ function plan(body, run) {
     if (!best || score > best.score) best = { G, c, al, m1, m2, fin, gap, score, layout };
   }
   if (!best) return null;
+  best.turns = turnsOf(body.bp, best.layout, best.fin.g);
+  if (MOTION === 'roll') { if (best.turns < 2) return null; best.score += Math.min(best.turns, 8) * 2; }
   best.fail = pickFail(body, best.layout, run.pop0);
   best.score += best.fail.kind === 'fall' ? 15 : 0;
   best.lock = strideLock(body, best.layout, best.fin.g, best.c); // 歩調が規則正しい = 勝利の走りを拍に合わせられる
@@ -157,8 +175,8 @@ if (args['body-seed'] != null) {
   for (const q of quick.slice(0, K)) {
     console.log(`  本番: 体の種 ${q.b.seed}`);
     const r = evolve(q.b, GENS), p = plan(q.b, r);
-    if (!p) { console.log('    → 台本に合わず'); continue; }
-    console.log(`    → ゴール ${p.G} m・惜しい世代 ${p.al.gen} (${(p.gap).toFixed(1)} cm 手前)・第0世代 ${p.fail.kind}・歩調 ${p.lock ? '拍に合う' : '不規則'}・ノード ${q.b.bp.nodes.length}・点 ${p.score.toFixed(1)}`);
+    if (!p) { console.log(MOTION === 'roll' ? '    → 台本に合わないか、転がっていない' : '    → 台本に合わず'); continue; }
+    console.log(`    → ゴール ${p.G} m・惜しい世代 ${p.al.gen} (${(p.gap).toFixed(1)} cm 手前)・第0世代 ${p.fail.kind}・歩調 ${p.lock ? '拍に合う' : '不規則'}・${p.turns.toFixed(1)}回転・ノード ${q.b.bp.nodes.length}・点 ${p.score.toFixed(1)}`);
     if (!P || p.score > P.score) { P = p; body = q.b; run = r; }
   }
   if (!P) { console.error('台本に合う体が見つかりませんでした。--cast を増やすか --seed を変えて。'); process.exit(1); }
@@ -167,6 +185,7 @@ if (args['body-seed'] != null) {
 
 // ─── 時間の割り付け: コマ → シミュレーションの秒 ───
 const { G, c, al, m1, m2, fin, fail, layout } = P;
+const ROLLING = MOTION === 'roll' && P.turns >= 2; // 転がって進む回 (--motion roll のときだけ見出しなどを変える)
 const r2 = v => Math.round(v * 1000) / 1000;
 // つかみ: 倒れた瞬間 (頭が地面に着く) を拍の頭に合わせる。f0 = 第0世代が動き出すコマ
 function hookMapFrom(f0) {
@@ -273,7 +292,7 @@ const gapCm = Math.max(1, Math.round(P.gap));
 const pop = settings.population;
 const tries = (fin.gen + 1) * pop;
 const texts = {
-  title: 'AI LEARNS TO WALK',
+  title: args.title ? String(args.title).toUpperCase() : ROLLING ? 'AI LEARNS TO ROLL' : 'AI LEARNS TO WALK',
   goal: `${G} m`,
   hookSub: 'random brain',
   hookFail: fail.kind === 'fall' ? "CAN'T EVEN STAND" : "CAN'T MOVE",
@@ -283,7 +302,7 @@ const texts = {
   almost: 'SO CLOSE...',
   almostShort: `${gapCm} cm short`,
   goalBig: 'GOAL!',
-  goalSub: 'nobody taught it how',
+  goalSub: ROLLING ? 'nobody taught it to roll' : 'nobody taught it how',
   result: [`GEN 0`, `GEN ${fin.gen}`, m(fail.d), m(fin.nose), `${tries.toLocaleString('en-US')} tries`],
   cta: ['FOLLOW', 'for the next creature', 'Name it ↓'],
 };
@@ -291,9 +310,11 @@ const hashtags = ['#ai', '#evolution', '#neuralnetwork', '#machinelearning', '#s
 const caption = [
   fail.kind === 'fall' ? "Gen 0 couldn't even stand." : "Gen 0 couldn't move an inch.",
   `Gen ${al.gen} missed the ${G} m flag by ${gapCm} cm.`,
-  lock && lock.lying && fail.kind === 'fall'
-    ? `Gen ${fin.gen} never learned to stand either — it invented its own way to move: ${m(fin.nose)} in ${EVAL} s. 🧬`
-    : `Gen ${fin.gen} made it: ${m(fin.nose)} in ${EVAL} s. 🧬`,
+  ROLLING
+    ? `Gen ${fin.gen} figured out rolling — ${P.turns.toFixed(0)} turns, ${m(fin.nose)} in ${EVAL} s. 🧬`
+    : lock && lock.lying && fail.kind === 'fall'
+      ? `Gen ${fin.gen} never learned to stand either — it invented its own way to move: ${m(fin.nose)} in ${EVAL} s. 🧬`
+      : `Gen ${fin.gen} made it: ${m(fin.nose)} in ${EVAL} s. 🧬`,
   '',
   `Random body, random brain. Nobody taught it how — just ${tries.toLocaleString('en-US')} tries of evolution.`,
   '',
@@ -304,14 +325,14 @@ const caption = [
 
 const b64 = f => Buffer.from(f.buffer, f.byteOffset, f.byteLength).toString('base64');
 const episode = {
-  format: 'softevo-reel/2', template: 'drop16', hook: HOOK,
+  format: 'softevo-reel/2', template: 'drop16', hook: HOOK, shape: SHAPE,
   creature: { name: args.name ? String(args.name).toUpperCase() : null, color: COLOR },
   episode: EP, tag: TAG, seed: SEED, bodySeed: body.seed, generations: GENS,
   fps: VFPS, bpm: BPM, beat: BEAT, frames: F.end, at: F,
   settings, blueprint: body.bp,
   goal: G,
   stride: lock ? { period: r2(lock.P), drop: r2(lock.tStar), victorySpeed: r2(lock.sV), approachSpeed: r2(lock.sA) } : null,
-  stats: { g0: r2(fail.d / 100), final: r2(fin.nose / 100), finalGen: fin.gen, almostGen: al.gen, gapCm, cross: r2(c), tries, failKind: fail.kind, failIndex: fail.k, nodes: body.bp.nodes.length, muscles: body.bp.edges.filter(e => e.type === 'muscle').length, neurons: layout.sizes.reduce((a, b) => a + b, 0) },
+  stats: { turns: r2(P.turns), g0: r2(fail.d / 100), final: r2(fin.nose / 100), finalGen: fin.gen, almostGen: al.gen, gapCm, cross: r2(c), tries, failKind: fail.kind, failIndex: fail.k, nodes: body.bp.nodes.length, muscles: body.bp.edges.filter(e => e.type === 'muscle').length, neurons: layout.sizes.reduce((a, b) => a + b, 0) },
   genomes: { f0: b64(fail.g), [m1.gen]: b64(m1.g), [m2.gen]: b64(m2.g), [al.gen]: b64(al.g), [fin.gen]: b64(fin.g) },
   segments, events, texts,
   cover: { top: texts.title, a: 'GEN 0', b: `GEN ${fin.gen}`, aSub: m(fail.d), bSub: m(fin.nose) },

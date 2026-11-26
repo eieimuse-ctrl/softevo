@@ -133,3 +133,68 @@ function build(rand) {
   if (!edges.some(e => e.type === 'muscle')) return null;
   return { nodes, edges };
 }
+
+/**
+ * 丸い体 (転がって進む生き物向け): 外周 5〜9 点 + 中心 (スポーク) または 弦、ときどきトゲ。
+ * 外周の半径・つぶれ方・どこを筋肉にするかは毎回ちがう。座標は 5cm 刻み
+ */
+export function randomRoundBody(rand = Math.random) {
+  for (let tries = 0; tries < 40; tries++) {
+    const bp = buildRound(rand);
+    if (bp && !validateBlueprint(bp) && bp.nodes.length <= MAX_NODES && bp.edges.length <= MAX_EDGES) return bp;
+  }
+  return null;
+}
+
+function buildRound(rand) {
+  const R = (a, b) => a + (b - a) * rand();
+  const RI = (a, b) => Math.floor(R(a, b + 1));
+  const chance = p => rand() < p;
+  const nodes = [], edges = [], seen = new Set();
+  const node = (x, y) => {
+    x = snap(x); y = Math.max(0, snap(y));
+    const k = nodes.findIndex(n => n.x === x && n.y === y);
+    if (k >= 0) return k;
+    nodes.push({ x, y });
+    return nodes.length - 1;
+  };
+  const edge = (a, b, type) => {
+    if (a === b) return;
+    const key = a < b ? `${a}-${b}` : `${b}-${a}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    edges.push({ a, b, type });
+  };
+  // ── 外周 ──
+  const K = RI(5, 9), r0 = R(25, 45), squash = R(0.8, 1.15), cy = r0 * squash + 5, phase = R(0, Math.PI * 2 / K);
+  const rim = [];
+  for (let i = 0; i < K; i++) {
+    const a = phase + i / K * Math.PI * 2, rr = r0 * R(0.85, 1.15);
+    const k = node(Math.sin(a) * rr, cy + Math.cos(a) * rr * squash);
+    if (!rim.includes(k)) rim.push(k);
+  }
+  const N = rim.length;
+  if (N < 4) return null;
+  for (let i = 0; i < N; i++) edge(rim[i], rim[(i + 1) % N], chance(0.2) ? 'muscle' : 'bone');
+  // ── 中心とスポーク、または 弦 ──
+  if (chance(0.75)) {
+    const hub = node(R(-5, 5), cy + R(-5, 5));
+    for (let i = 0; i < N; i++) edge(hub, rim[i], chance(0.6) ? 'muscle' : 'bone');
+  } else {
+    for (let i = 0; i < N; i++) edge(rim[i], rim[(i + Math.floor(N / 2)) % N], chance(0.6) ? 'muscle' : 'bone');
+    for (let i = 0; i < N; i += 2) if (chance(0.5)) edge(rim[i], rim[(i + 2) % N], 'bone');
+  }
+  // ── トゲ (0〜2本。体に表情が出る) ──
+  for (let s = RI(0, 2); s > 0; s--) {
+    const i = RI(0, N - 1), p = nodes[rim[i]], c = { x: 0, y: cy };
+    const dx = p.x - c.x, dy = p.y - c.y, d = Math.hypot(dx, dy) || 1, len = R(10, 20);
+    const tip = node(p.x + dx / d * len, p.y + dy / d * len);
+    edge(rim[i], tip, 'bone');
+    edge(rim[(i + 1) % N], tip, chance(0.5) ? 'muscle' : 'bone');
+  }
+  // 筋肉は 3本以上 (足りなければ骨を筋肉に)
+  let muscles = edges.filter(e => e.type === 'muscle').length;
+  for (const e of edges) { if (muscles >= 3) break; if (e.type === 'bone' && chance(0.5)) { e.type = 'muscle'; muscles++; } }
+  if (muscles < 1) return null;
+  return { nodes, edges };
+}
