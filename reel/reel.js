@@ -131,7 +131,8 @@ const span = (key, map) => { const ts = map.map(m => m[1]); return extents(track
 const fitZoom = (list, cw, ch, top, ground = GROUND) => {
   let w = 0, h = 0;
   for (const [key, map] of list) { const e = span(key, map); w = Math.max(w, e.w); h = Math.max(h, e.h); }
-  return clamp(Math.min(cw * 0.5 / Math.max(30, w), (ch * ground - top - 6) / Math.max(20, h)), 0.3, 3);
+  // 高さは節点の中心で測っているので、描いたときの丸 (半径6) と目のはみ出しのぶん (8) を足す
+  return clamp(Math.min(cw * 0.5 / Math.max(30, w), (ch * ground - top - 6) / Math.max(20, h + 8)), 0.3, 3);
 };
 const ZH = fitZoom([['f0', seg('hook').map]], CW, CH, TEXT_BAND);
 const ZM = fitZoom(['m1', 'm2', 'almost', 'final'].map(id => [seg(id).genome, seg(id).map]), CW, CH, TEXT_BAND);
@@ -401,8 +402,8 @@ function cta(k) {
   const R = LAY.world, B = LAY.brain;
   X.fillStyle = CHK_INK; X.fillRect(0, R.y + 57, W, R.h - 57); X.fillRect(0, B.y - 12, W, B.h + 24);
   const [a, b, c] = T.cta;
-  pop(a, W / 2, R.y + 252, 128, PAL.g2, k);
-  pop(b, W / 2, R.y + 334, 48, PAL.white, k - 4);
+  pop(a, W / 2, R.y + 188, 128, PAL.g2, k);       // 文字は空の上の帯に (巻き戻る生き物と重ねない)
+  pop(b, W / 2, R.y + 246, 48, PAL.white, k - 4);
   if (k >= BEAT) { X.fillStyle = PAL.ink; X.fillRect(0, B.y - 12, W, B.h + 24); }
   pop(c, W / 2, B.y + 150, 96, PAL.white, k - BEAT);
 }
