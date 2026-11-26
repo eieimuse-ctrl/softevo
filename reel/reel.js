@@ -124,19 +124,21 @@ function extents(tr, t0, t1) {
   }
   return { w, h };
 }
-const GROUND = 0.76, HUDH = 20; // 地面は窓の上から76% / 上のバーは CSS 20px
+const GROUND = 0.84, HUDH = 20; // 地面は窓の上から84% / 上のバーは CSS 20px
+// 空の上の方は文字 (GEN・GOAL! など) の帯。生き物は帯より下に収める (背の高い体でも文字と重ならない)
+const TEXT_BAND = 84; // 世界の上から CSS 84px (= 252px) まで
 const span = (key, map) => { const ts = map.map(m => m[1]); return extents(trackOf(key), Math.min(...ts), Math.max(...ts)); };
-const fitZoom = (list, cw, ch, hud) => {
+const fitZoom = (list, cw, ch, top, ground = GROUND) => {
   let w = 0, h = 0;
   for (const [key, map] of list) { const e = span(key, map); w = Math.max(w, e.w); h = Math.max(h, e.h); }
-  return clamp(Math.min(cw * 0.5 / Math.max(30, w), (ch * GROUND - hud - 8) / Math.max(20, h)), 0.3, 3);
+  return clamp(Math.min(cw * 0.5 / Math.max(30, w), (ch * ground - top - 6) / Math.max(20, h)), 0.3, 3);
 };
-const ZH = fitZoom([['f0', seg('hook').map]], CW, CH, HUDH);
-const ZM = fitZoom(['m1', 'm2', 'almost', 'final'].map(id => [seg(id).genome, seg(id).map]), CW, CH, HUDH);
+const ZH = fitZoom([['f0', seg('hook').map]], CW, CH, TEXT_BAND);
+const ZM = fitZoom(['m1', 'm2', 'almost', 'final'].map(id => [seg(id).genome, seg(id).map]), CW, CH, TEXT_BAND);
 const SPL = seg('split');
 const SPLIT_GROUND = 0.72;
 // 下の窓 (最終世代) は上と同じ大きさで描く (立てない体と進む体を同じ縮尺で比べる)。収まらなければ少し小さく
-const ZS = SPL ? Math.min(ZH, fitZoom([[SPL.genomeB, SPL.mapB]], CW, LAY.split.h / S * SPLIT_GROUND / GROUND, 0)) : 1;
+const ZS = SPL ? Math.min(ZH, fitZoom([[SPL.genomeB, SPL.mapB]], CW, LAY.split.h / S, 40, SPLIT_GROUND)) : 1; // 下の窓は GEN の文字の下に
 
 // ─── 文字 ───
 function text(str, x, y, size, color, align = 'center') {
@@ -339,7 +341,7 @@ async function renderFrame(i) {
   if (T.prev && f >= A.m1 && f < A.almost) pop(T.prev, W - GX, R.y + 150, 40, PAL.t3, f - A.m1, 'right');
 
   // ─── 場面ごとの文字 ───
-  if (sg.id === 'hook' && BONK) pop(T.hookFail, W / 2, R.y + 272, 64, PAL.r2, f - Math.max(BONK.f, sg.from));
+  if (sg.id === 'hook' && BONK) pop(T.hookFail, W / 2, R.y + 240, 64, PAL.r2, f - Math.max(BONK.f, sg.from));
   if (sg.id === 'almost' && f >= A.timeUp) { // 惜しい!: 世界はすき間を見せたいので、文字は脳の窓の上に
     X.fillStyle = PAL.ink; X.fillRect(0, B.y - 12, W, B.h + 24);
     X.fillStyle = PAL.r1; X.fillRect(0, B.y - 12, W, 6); X.fillRect(0, B.y + B.h + 6, W, 6);
